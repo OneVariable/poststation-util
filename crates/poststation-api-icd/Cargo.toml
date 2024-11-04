@@ -1,0 +1,23 @@
+[package]
+name = "poststation-api-icd"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/OneVariable/poststation-util"
+authors = ["James Munns <james@onevariable.com>"]
+description = "API types for poststation"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+chrono = { version = "0.4.38", features = ["serde"] }
+postcard-schema = { version = "0.1.0", features = ["chrono-v0_4", "postcard-derive", "use-std", "uuid-v1_0"] }
+serde = "1.0"
+
+[dependencies.postcard-rpc]
+version = "0.10"
+features = [
+    "use-std",
+]
+
+[dependencies.uuid]
+version = "1.10.0"
+features = ["v7", "serde"]
