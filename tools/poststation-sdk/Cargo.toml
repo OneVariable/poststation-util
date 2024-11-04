@@ -36,13 +36,3 @@ features = [
     "net",
     "io-util",
 ]
-
-# [dependencies.uuid]
-# version = "1.10.0"
-# features = ["v7", "serde"]
-
-# [patch.crates-io]
-# # postcard-rpc = { git = "https://github.com/jamesmunns/postcard-rpc", rev = "628cb7769489ef7a435cf3cd4494ed0b41cd4bb3" }
-# postcard-rpc = { path = "/Users/james/personal/postcard-rpc/source/postcard-rpc" }
-# # NOTE: basing this on https://github.com/jamesmunns/postcard/pull/170 which adds owned schemas
-# postcard = { git = "https://github.com/jamesmunns/postcard", branch = "james/owned-schema" }
