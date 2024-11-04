@@ -1,21 +1,42 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use embassy_rp::{peripherals::USB, usb};
+use crate::handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id};
+use embassy_rp::{gpio::Output, peripherals::USB, usb};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
-    dispatch_impl::{WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
+    dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
     PacketBuffers,
 };
-use postcard_rpc::{define_dispatch, server::Server};
+use postcard_rpc::{
+    define_dispatch,
+    server::{Server, SpawnContext},
+};
 use static_cell::ConstStaticCell;
-use template_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST, GetUniqueIdEndpoint, RebootToPicoBoot};
-use crate::handlers::{unique_id, picoboot_reset};
+use template_icd::{
+    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint,
+};
+use template_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
 /// Context contains the data that we will pass (as a mutable reference)
 /// to each endpoint or topic handler
 pub struct Context {
     /// We'll use this unique ID to identify ourselves to the poststation
     /// server. This should be unique per device.
+    pub unique_id: u64,
+    pub led: Output<'static>,
+}
+
+impl SpawnContext for Context {
+    type SpawnCtxt = TaskContext;
+
+    fn spawn_ctxt(&mut self) -> Self::SpawnCtxt {
+        TaskContext {
+            unique_id: self.unique_id,
+        }
+    }
+}
+
+pub struct TaskContext {
     pub unique_id: u64,
 }
 
@@ -50,7 +71,6 @@ pub type AppServer = Server<AppTx, AppRx, WireRxBuf, MyApp>;
 pub static PBUFS: ConstStaticCell<BufStorage> = ConstStaticCell::new(BufStorage::new());
 /// Statically store our USB app buffers
 pub static STORAGE: AppStorage = AppStorage::new();
-
 
 // This macro defines your application
 define_dispatch! {
@@ -89,6 +109,9 @@ define_dispatch! {
         | ----------                | ----      | -------                       |
         | GetUniqueIdEndpoint       | blocking  | unique_id                     |
         | RebootToPicoBoot          | blocking  | picoboot_reset                |
+        | SleepEndpoint             | spawn     | sleep_handler                 |
+        | SetLedEndpoint            | blocking  | set_led                       |
+        | GetLedEndpoint            | blocking  | get_led                       |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply

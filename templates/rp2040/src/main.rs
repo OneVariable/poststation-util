@@ -3,7 +3,7 @@
 
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_rp::{bind_interrupts, peripherals::USB, usb};
+use embassy_rp::{bind_interrupts, gpio::{Level, Output}, peripherals::USB, usb};
 use embassy_usb::{Config, UsbDevice};
 use postcard_rpc::server::{Dispatch, Server};
 use static_cell::StaticCell;
@@ -66,8 +66,9 @@ async fn main(spawner: Spawner) {
     let driver = usb::Driver::new(p.USB, Irqs);
     let pbufs = app::PBUFS.take();
     let config = usb_config(ser_buf);
+    let led = Output::new(p.PIN_25, Level::Low);
 
-    let context = app::Context { unique_id };
+    let context = app::Context { unique_id, led };
 
     let (device, tx_impl, rx_impl) = app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());
     let dispatcher = app::MyApp::new(context, spawner.into());

@@ -753,8 +753,6 @@ dependencies = [
 [[package]]
 name = "poststation-api-icd"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a14358f292ef07b254871a50cb8aab9adbe2f6af3dffdade68bf345d030839ac"
 dependencies = [
  "chrono",
  "postcard-rpc",
