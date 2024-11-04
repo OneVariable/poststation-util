@@ -23,10 +23,12 @@ version = "0.10.2"
 features = ["use-std"]
 
 [dependencies.poststation-api-icd]
+path = "../../crates/poststation-api-icd"
 version = "0.1.0"
 
 [dependencies.poststation-sdk]
 path = "../poststation-sdk"
+version = "0.1.0"
 
 
 [dependencies.tokio]
