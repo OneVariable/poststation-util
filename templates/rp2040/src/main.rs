@@ -1,11 +1,13 @@
 #![no_std]
 #![no_main]
 
+use app::AppTx;
 use defmt::info;
 use embassy_executor::Spawner;
 use embassy_rp::{bind_interrupts, gpio::{Level, Output}, peripherals::USB, usb};
+use embassy_time::{Duration, Instant, Ticker};
 use embassy_usb::{Config, UsbDevice};
-use postcard_rpc::server::{Dispatch, Server};
+use postcard_rpc::{sender_fmt, server::{Dispatch, Sender, Server}};
 use static_cell::StaticCell;
 
 bind_interrupts!(pub struct Irqs {
@@ -80,9 +82,11 @@ async fn main(spawner: Spawner) {
         dispatcher,
         vkk,
     );
+    let sender = server.sender();
     // We need to spawn the USB task so that USB messages are handled by
     // embassy-usb
     spawner.must_spawn(usb_task(device));
+    spawner.must_spawn(logging_task(sender));
 
     // Begin running!
     loop {
@@ -96,6 +100,17 @@ async fn main(spawner: Spawner) {
 #[embassy_executor::task]
 pub async fn usb_task(mut usb: UsbDevice<'static, app::AppDriver>) {
     usb.run().await;
+}
+
+/// This task is a "sign of life" logger
+#[embassy_executor::task]
+pub async fn logging_task(sender: Sender<AppTx>) {
+    let mut ticker = Ticker::every(Duration::from_secs(3));
+    let start = Instant::now();
+    loop {
+        ticker.next().await;
+        let _ = sender_fmt!(sender, "Uptime: {:?}", start.elapsed()).await;
+    }
 }
 
 /// Helper to get unique ID from flash
