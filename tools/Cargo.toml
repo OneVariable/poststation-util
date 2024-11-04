@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "poststation-cli",
+    "poststation-sdk",
+]
+resolver = "2"

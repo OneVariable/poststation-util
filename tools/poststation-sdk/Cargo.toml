@@ -1,0 +1,47 @@
+[package]
+name = "poststation-sdk"
+version = "0.1.0"
+edition = "2021"
+authors = ["James Munns <james@onevariable.com>"]
+description = "An API SDK for poststation"
+repository = "https://github.com/OneVariable/poststation-util"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+postcard = { version = "1.0.10", features = ["use-std"] }
+postcard-schema = { version = "0.1", features = ["uuid-v1_0"]}
+serde = "1.0"
+postcard-dyn = { version = "0.1" }
+tracing = "0.1.40"
+cobs = "0.2.3"
+serde_json = "1.0.128"
+
+[dependencies.poststation-api-icd]
+version = "0.1.0"
+
+[dependencies.postcard-rpc]
+version = "0.10"
+features = [
+    "use-std",
+    "raw-nusb",
+]
+
+[dependencies.tokio]
+version = "1.37.0"
+features = [
+    "rt-multi-thread",
+    "macros",
+    "time",
+    "net",
+    "io-util",
+]
+
+# [dependencies.uuid]
+# version = "1.10.0"
+# features = ["v7", "serde"]
+
+# [patch.crates-io]
+# # postcard-rpc = { git = "https://github.com/jamesmunns/postcard-rpc", rev = "628cb7769489ef7a435cf3cd4494ed0b41cd4bb3" }
+# postcard-rpc = { path = "/Users/james/personal/postcard-rpc/source/postcard-rpc" }
+# # NOTE: basing this on https://github.com/jamesmunns/postcard/pull/170 which adds owned schemas
+# postcard = { git = "https://github.com/jamesmunns/postcard", branch = "james/owned-schema" }
