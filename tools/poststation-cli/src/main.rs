@@ -37,6 +37,7 @@ enum Commands {
 
     /// Get information about a device
     Device(Device),
+    /// Proxy an endpoint request/response through the server
     Proxy {
         #[arg(short, long, value_name = "SERIAL")]
         serial: String,
@@ -44,6 +45,13 @@ enum Commands {
         path: String,
         #[arg(short, long, value_name = "MSG_JSON")]
         message: String,
+    },
+    /// Listen to a given "topic-out" path from a device
+    Listen {
+        #[arg(short, long, value_name = "SERIAL")]
+        serial: String,
+        #[arg(short, long, value_name = "PATH")]
+        path: String,
     },
 }
 
@@ -112,52 +120,8 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             message,
             path,
         } => device_proxy(client, serial, path, message).await,
-        Commands::Endpoints { mut serial } => {
-            serial = serial.to_uppercase();
-            let mut serial_num = None;
-            let mut serial_fragment = false;
-
-            if let Ok(ser) = u64::from_str_radix(&serial, 16) {
-                if serial.len() == 16 {
-                    serial_num = Some(ser);
-                } else {
-                    serial_fragment = true;
-                }
-            }
-
-            if serial_num.is_none() {
-                let devices = client.get_devices().await.unwrap();
-                let uppy = serial.to_uppercase();
-                let matches = devices
-                    .iter()
-                    .filter(|d| {
-                        d.name.contains(&uppy)
-                            || (serial_fragment && {
-                                let this_ser = format!("{:016X}", d.serial);
-                                this_ser.contains(&serial)
-                            })
-                    })
-                    .collect::<Vec<_>>();
-
-                if matches.is_empty() {
-                    bail!("Failed to find device matching '{serial}'");
-                } else if matches.len() > 1 {
-                    println!("Given '{serial}', found:");
-                    println!();
-                    for m in matches {
-                        println!("* name: '{}' serial: {:016X}", m.name, m.serial);
-                    }
-                    println!();
-                    bail!("Too many matches, be more specific!");
-                } else {
-                    serial = format!("{:016X}", matches[0].serial);
-                    serial_num = Some(matches[0].serial);
-                }
-            };
-
-            let Some(serial_num) = serial_num else {
-                bail!("Couldn't figure a serial number out!");
-            };
+        Commands::Endpoints { serial } => {
+            let serial_num = guess_serial(&serial, &client).await?;
 
             println!("{serial_num:016X}");
             let schema = client
@@ -226,6 +190,19 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             }
             println!();
 
+            Ok(())
+        }
+        Commands::Listen { serial, path } => {
+            let serial_num = guess_serial(&serial, &client).await?;
+            let mut sub = match client.stream_topic_json(serial_num, &path).await {
+                Ok(s) => s,
+                Err(e) => bail!("{e}"),
+            };
+
+            while let Some(m) = sub.recv().await {
+                println!("{serial_num:016X}:'{path}':{m}");
+            }
+            println!("Closed");
             Ok(())
         }
     }
@@ -326,4 +303,52 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
             Ok(())
         }
     }
+}
+
+async fn guess_serial(serial: &str, client: &SquadClient) -> anyhow::Result<u64> {
+    let serial = serial.to_uppercase();
+    let mut serial_num = None;
+    let mut serial_fragment = false;
+
+    if let Ok(ser) = u64::from_str_radix(&serial, 16) {
+        if serial.len() == 16 {
+            serial_num = Some(ser);
+        } else {
+            serial_fragment = true;
+        }
+    }
+
+    if serial_num.is_none() {
+        let devices = client.get_devices().await.unwrap();
+        let uppy = serial.to_uppercase();
+        let matches = devices
+            .iter()
+            .filter(|d| {
+                d.name.contains(&uppy)
+                    || (serial_fragment && {
+                        let this_ser = format!("{:016X}", d.serial);
+                        this_ser.contains(&serial)
+                    })
+            })
+            .collect::<Vec<_>>();
+
+        if matches.is_empty() {
+            bail!("Failed to find device matching '{serial}'");
+        } else if matches.len() > 1 {
+            println!("Given '{serial}', found:");
+            println!();
+            for m in matches {
+                println!("* name: '{}' serial: {:016X}", m.name, m.serial);
+            }
+            println!();
+            bail!("Too many matches, be more specific!");
+        } else {
+            serial_num = Some(matches[0].serial);
+        }
+    };
+
+    let Some(serial_num) = serial_num else {
+        bail!("Couldn't figure a serial number out!");
+    };
+    Ok(serial_num)
 }

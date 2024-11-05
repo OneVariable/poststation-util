@@ -3,12 +3,11 @@ use std::{error::Error, fmt::Display, future::Future, net::SocketAddr};
 
 use postcard_dyn::Value;
 use postcard_rpc::{
-    host_client::{HostClient, SchemaReport, WireRx, WireSpawn, WireTx},
+    host_client::{HostClient, MultiSubRxError, MultiSubscription, SchemaReport, TopicReport, WireRx, WireSpawn, WireTx},
     standard_icd::{PingEndpoint, WireError, ERROR_PATH},
 };
 use poststation_api_icd::{
-    DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRequest,
-    ProxyEndpoint, ProxyRequest, ProxyResponse, TopicMsg, TopicRequest, Uuidv7,
+    DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg, TopicStreamRequest, TopicStreamResult, Uuidv7
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -173,6 +172,73 @@ impl SquadClient {
         match resp {
             Ok(v) => Ok(v),
             Err(e) => Err(format!("Decode error: '{e:?}'")),
+        }
+    }
+
+    /// Listen to a given topic path, receiving a subscription that yields live messages
+    pub async fn stream_topic_json(&self, serial: u64, path: &str) -> Result<JsonStreamListener, String> {
+        let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
+            return Err("topic not found".into());
+        };
+
+        // find key
+        let res = schemas.topics_out.iter().find(|e| e.path.as_str() == path).cloned();
+        let Some(schema) = res else {
+            return Err("topic not found".into());
+        };
+
+        let sub = self.client.subscribe_multi::<SubscribeTopic>(64).await.map_err(|e| {
+            format!("Error: {e:?}")
+        })?;
+
+        let res = self.client.send_resp::<StartStreamEndpoint>(&TopicStreamRequest {
+            serial,
+            path: path.to_string(),
+            key: schema.key,
+        }).await;
+
+        let stream_id = match res {
+            Ok(TopicStreamResult::Started(id)) => id,
+            Ok(TopicStreamResult::DeviceDisconnected) => return Err("Device Disconnected".into()),
+            Ok(TopicStreamResult::NoDeviceKnown) => return Err("No Device Known".into()),
+            Ok(TopicStreamResult::NoSuchTopic) => return Err("No Such Topic".into()),
+            Err(e) => return Err(format!("Error: {e:?}")),
+        };
+
+        Ok(JsonStreamListener { schema, sub, stream_id })
+    }
+}
+
+pub struct JsonStreamListener {
+    stream_id: Uuidv7,
+    schema: TopicReport,
+    sub: MultiSubscription<TopicStreamMsg>,
+}
+
+impl JsonStreamListener {
+    /// Receive a single message from this subscription
+    ///
+    /// Returns None if the connection has been closed
+    pub async fn recv(&mut self) -> Option<Value> {
+        loop {
+            let msg = match self.sub.recv().await {
+                Ok(m) => m,
+                Err(MultiSubRxError::IoClosed) => return None,
+                Err(MultiSubRxError::Lagged(n)) => {
+                    tracing::warn!(stream_id = ?self.stream_id, lags = n, "Stream lagged");
+                    continue;
+                }
+            };
+
+            let TopicStreamMsg { stream_id, msg } = msg;
+            if stream_id != self.stream_id {
+                continue;
+            }
+
+            let Ok(msg) = postcard_dyn::from_slice_dyn(&self.schema.ty, &msg) else {
+                continue;
+            };
+            return Some(msg);
         }
     }
 }

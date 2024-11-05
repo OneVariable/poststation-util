@@ -13,13 +13,15 @@ pub type OptVecTopicMsg = Option<Vec<TopicMsg>>;
 
 endpoints! {
     list = RACK_ENDPOINTS;
-    | EndpointTy            | RequestTy     | ResponseTy        | Path                          |
-    | ----------            | ---------     | ----------        | ----                          |
-    | GetDevicesEndpoint    | ()            | DeviceDatas       | "rack/devices/get"            |
-    | GetSchemasEndpoint    | u64           | OptSchemaReport   | "rack/devices/schemas/get"    |
-    | GetLogsEndpoint       | LogRequest    | OptVecLog         | "rack/devices/logs/get"       |
-    | GetTopicsEndpoint     | TopicRequest  | OptVecTopicMsg    | "rack/devices/topics/get"     |
-    | ProxyEndpoint         | ProxyRequest  | ProxyResponse     | "rack/devices/proxy"          |
+    | EndpointTy            | RequestTy             | ResponseTy        | Path                          |
+    | ----------            | ---------             | ----------        | ----                          |
+    | GetDevicesEndpoint    | ()                    | DeviceDatas       | "rack/devices/get"            |
+    | GetSchemasEndpoint    | u64                   | OptSchemaReport   | "rack/devices/schemas/get"    |
+    | GetLogsEndpoint       | LogRequest            | OptVecLog         | "rack/devices/logs/get"       |
+    | GetTopicsEndpoint     | TopicRequest          | OptVecTopicMsg    | "rack/devices/topics/get"     |
+    | ProxyEndpoint         | ProxyRequest          | ProxyResponse     | "rack/devices/proxy"          |
+    | StartStreamEndpoint   | TopicStreamRequest    | TopicStreamResult | "rack/devices/stream/start"   |
+    | StopStreamEndpoint    | Uuidv7                | ()                | "rack/devices/stream/stop"    |
 }
 
 topics! {
@@ -34,6 +36,7 @@ topics! {
     direction = TopicDirection::ToClient;
     | TopicTy               | MessageTy         | Path                      |
     | -------               | ---------         | ----                      |
+    | SubscribeTopic        | TopicStreamMsg    | "rack/devices/stream"     |
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Schema)]
@@ -95,6 +98,27 @@ pub struct TopicRequest {
 pub struct TopicMsg {
     pub uuidv7: Uuidv7,
     pub msg: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Schema)]
+pub struct TopicStreamRequest {
+    pub serial: u64,
+    pub path: String,
+    pub key: Key,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Schema)]
+pub struct TopicStreamMsg {
+    pub stream_id: Uuidv7,
+    pub msg: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Schema)]
+pub enum TopicStreamResult {
+    Started(Uuidv7),
+    NoDeviceKnown,
+    DeviceDisconnected,
+    NoSuchTopic,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Schema)]

@@ -720,9 +720,9 @@ dependencies = [
 
 [[package]]
 name = "postcard-rpc"
-version = "0.10.5"
+version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c2b38164e722441506513712a1e3b2aac76bd56ded7ddaa34a646378a09628"
+checksum = "5b0cda8ff0f9f87574273050ba73b706944a79d774c7cdc23847ec5bbf39b366"
 dependencies = [
  "heapless 0.8.0",
  "maitake-sync",
@@ -752,7 +752,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-api-icd"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "postcard-rpc",
@@ -763,7 +763,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -777,7 +777,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-sdk"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "cobs",
  "postcard",

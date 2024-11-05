@@ -1,6 +1,6 @@
 [package]
 name = "poststation-api-icd"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 repository = "https://github.com/OneVariable/poststation-util"
 authors = ["James Munns <james@onevariable.com>"]
@@ -13,7 +13,7 @@ postcard-schema = { version = "0.1.0", features = ["chrono-v0_4", "postcard-deri
 serde = "1.0"
 
 [dependencies.postcard-rpc]
-version = "0.10"
+version = "0.10.6"
 features = [
     "use-std",
 ]

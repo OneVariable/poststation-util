@@ -1,6 +1,6 @@
 [package]
 name = "poststation-sdk"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["James Munns <james@onevariable.com>"]
 description = "An API SDK for poststation"
@@ -18,10 +18,10 @@ serde_json = "1.0.128"
 
 [dependencies.poststation-api-icd]
 path = "../../crates/poststation-api-icd"
-version = "0.1.0"
+version = "0.1.1"
 
 [dependencies.postcard-rpc]
-version = "0.10"
+version = "0.10.6"
 features = [
     "use-std",
     "raw-nusb",
