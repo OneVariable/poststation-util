@@ -3,11 +3,17 @@ use std::{error::Error, fmt::Display, future::Future, net::SocketAddr};
 
 use postcard_dyn::Value;
 use postcard_rpc::{
-    host_client::{HostClient, MultiSubRxError, MultiSubscription, SchemaReport, TopicReport, WireRx, WireSpawn, WireTx},
+    host_client::{
+        HostClient, MultiSubRxError, MultiSubscription, SchemaReport, TopicReport, WireRx,
+        WireSpawn, WireTx,
+    },
     standard_icd::{PingEndpoint, WireError, ERROR_PATH},
 };
 use poststation_api_icd::{
-    DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest, PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg, TopicStreamRequest, TopicStreamResult, Uuidv7
+    DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log,
+    LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest,
+    PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg,
+    TopicStreamRequest, TopicStreamResult, Uuidv7,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -31,7 +37,10 @@ impl SquadClient {
     }
 
     pub async fn get_devices(&self) -> Result<Vec<DeviceData>, ()> {
-        self.client.send_resp::<GetDevicesEndpoint>(&()).await.map_err(drop)
+        self.client
+            .send_resp::<GetDevicesEndpoint>(&())
+            .await
+            .map_err(drop)
     }
 
     pub async fn get_device_schemas(&self, serial: u64) -> Result<Option<SchemaReport>, ()> {
@@ -219,26 +228,39 @@ impl SquadClient {
     }
 
     /// Listen to a given topic path, receiving a subscription that yields live messages
-    pub async fn stream_topic_json(&self, serial: u64, path: &str) -> Result<JsonStreamListener, String> {
+    pub async fn stream_topic_json(
+        &self,
+        serial: u64,
+        path: &str,
+    ) -> Result<JsonStreamListener, String> {
         let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
             return Err("topic not found".into());
         };
 
         // find key
-        let res = schemas.topics_out.iter().find(|e| e.path.as_str() == path).cloned();
+        let res = schemas
+            .topics_out
+            .iter()
+            .find(|e| e.path.as_str() == path)
+            .cloned();
         let Some(schema) = res else {
             return Err("topic not found".into());
         };
 
-        let sub = self.client.subscribe_multi::<SubscribeTopic>(64).await.map_err(|e| {
-            format!("Error: {e:?}")
-        })?;
+        let sub = self
+            .client
+            .subscribe_multi::<SubscribeTopic>(64)
+            .await
+            .map_err(|e| format!("Error: {e:?}"))?;
 
-        let res = self.client.send_resp::<StartStreamEndpoint>(&TopicStreamRequest {
-            serial,
-            path: path.to_string(),
-            key: schema.key,
-        }).await;
+        let res = self
+            .client
+            .send_resp::<StartStreamEndpoint>(&TopicStreamRequest {
+                serial,
+                path: path.to_string(),
+                key: schema.key,
+            })
+            .await;
 
         let stream_id = match res {
             Ok(TopicStreamResult::Started(id)) => id,
@@ -248,7 +270,11 @@ impl SquadClient {
             Err(e) => return Err(format!("Error: {e:?}")),
         };
 
-        Ok(JsonStreamListener { schema, sub, stream_id })
+        Ok(JsonStreamListener {
+            schema,
+            sub,
+            stream_id,
+        })
     }
 }
 
