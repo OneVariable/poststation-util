@@ -7,7 +7,7 @@ use postcard_rpc::{
     standard_icd::{PingEndpoint, WireError, ERROR_PATH},
 };
 use poststation_api_icd::{
-    DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg, TopicStreamRequest, TopicStreamResult, Uuidv7
+    DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest, PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg, TopicStreamRequest, TopicStreamResult, Uuidv7
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -172,6 +172,49 @@ impl SquadClient {
         match resp {
             Ok(v) => Ok(v),
             Err(e) => Err(format!("Decode error: '{e:?}'")),
+        }
+    }
+
+    pub async fn publish_topic_json(
+        &self,
+        serial: u64,
+        path: &str,
+        seq_no: u32,
+        body: Value,
+    ) -> Result<(), String> {
+        let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
+            return Err("endpoint not found".into());
+        };
+
+        // find key
+        let res = schemas.topics_in.iter().find(|e| e.path.as_str() == path);
+        let Some(schema) = res else {
+            return Err("endpoint not found".into());
+        };
+
+        let Ok(body) = postcard_dyn::to_stdvec_dyn(&schema.ty, &body) else {
+            todo!()
+        };
+        let req = PublishRequest {
+            serial,
+            path: schema.path.clone(),
+            topic_key: schema.key,
+            seq_no,
+            topic_body: body,
+        };
+
+        let resp = self.client.send_resp::<PublishEndpoint>(&req).await;
+
+        let resp = match resp {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(format!("Server error: {e:?}"));
+            }
+        };
+
+        match resp {
+            PublishResponse::Sent => Ok(()),
+            PublishResponse::OtherErr(e) => Err(format!("Other Server Err: '{e}'")),
         }
     }
 

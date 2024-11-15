@@ -46,6 +46,14 @@ enum Commands {
         #[arg(short, long, value_name = "MSG_JSON")]
         message: String,
     },
+    Publish {
+        #[arg(short, long, value_name = "SERIAL")]
+        serial: String,
+        #[arg(short, long, value_name = "PATH")]
+        path: String,
+        #[arg(short, long, value_name = "MSG_JSON")]
+        message: String,
+    },
     /// Listen to a given "topic-out" path from a device
     Listen {
         #[arg(short, long, value_name = "SERIAL")]
@@ -120,6 +128,11 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             message,
             path,
         } => device_proxy(client, serial, path, message).await,
+        Commands::Publish {
+            serial,
+            message,
+            path,
+        } => device_publish(client, serial, path, message).await,
         Commands::Endpoints { serial } => {
             let serial_num = guess_serial(&serial, &client).await?;
 
@@ -221,6 +234,25 @@ async fn device_proxy(
 
     match res {
         Ok(v) => println!("Response: '{v}'"),
+        Err(e) => println!("Error: '{e}'"),
+    }
+
+    Ok(())
+}
+
+async fn device_publish(
+    client: SquadClient,
+    serial: String,
+    path: String,
+    message: String,
+) -> anyhow::Result<()> {
+    let serial = u64::from_str_radix(&serial, 16)?;
+    let msg = message.parse()?;
+
+    let res = client.publish_topic_json(serial, &path, 0, msg).await;
+
+    match res {
+        Ok(()) => println!("Published."),
         Err(e) => println!("Error: '{e}'"),
     }
 

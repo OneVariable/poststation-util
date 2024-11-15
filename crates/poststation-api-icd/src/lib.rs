@@ -20,6 +20,7 @@ endpoints! {
     | GetLogsEndpoint       | LogRequest            | OptVecLog         | "rack/devices/logs/get"       |
     | GetTopicsEndpoint     | TopicRequest          | OptVecTopicMsg    | "rack/devices/topics/get"     |
     | ProxyEndpoint         | ProxyRequest          | ProxyResponse     | "rack/devices/proxy"          |
+    | PublishEndpoint       | PublishRequest        | PublishResponse   | "rack/devices/publish"        |
     | StartStreamEndpoint   | TopicStreamRequest    | TopicStreamResult | "rack/devices/stream/start"   |
     | StopStreamEndpoint    | Uuidv7                | ()                | "rack/devices/stream/stop"    |
 }
@@ -145,3 +146,19 @@ pub enum ProxyResponse {
     },
     OtherErr(String),
 }
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Schema)]
+pub struct PublishRequest {
+    pub serial: u64,
+    pub path: String,
+    pub topic_key: Key,
+    pub seq_no: u32,
+    pub topic_body: Vec<u8>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Schema)]
+pub enum PublishResponse {
+    Sent,
+    OtherErr(String),
+}
+

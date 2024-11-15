@@ -720,9 +720,9 @@ dependencies = [
 
 [[package]]
 name = "postcard-rpc"
-version = "0.10.6"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b0cda8ff0f9f87574273050ba73b706944a79d774c7cdc23847ec5bbf39b366"
+checksum = "4017d2829bbe6890effaa7b5817d0308fdce86c906ba65a8c1bffa519c138739"
 dependencies = [
  "heapless 0.8.0",
  "maitake-sync",
