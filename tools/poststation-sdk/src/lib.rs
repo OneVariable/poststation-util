@@ -1,5 +1,5 @@
 use core::fmt::Debug;
-use std::{error::Error, fmt::Display, future::Future, net::SocketAddr};
+use std::{error::Error, fmt::Display, future::Future, marker::PhantomData, net::SocketAddr};
 
 use postcard_dyn::Value;
 use postcard_rpc::{
@@ -8,6 +8,7 @@ use postcard_rpc::{
         WireSpawn, WireTx,
     },
     standard_icd::{PingEndpoint, WireError, ERROR_PATH},
+    Endpoint, Topic,
 };
 use poststation_api_icd::{
     DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log,
@@ -15,6 +16,7 @@ use poststation_api_icd::{
     PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg,
     TopicStreamRequest, TopicStreamResult, Uuidv7,
 };
+use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{
@@ -27,6 +29,7 @@ pub use postcard_schema as schema;
 
 // ---
 
+#[derive(Clone)]
 pub struct SquadClient {
     client: HostClient<WireError>,
 }
@@ -132,6 +135,68 @@ impl SquadClient {
         Ok(Some(res))
     }
 
+    pub async fn proxy_endpoint<E>(
+        &self,
+        serial: u64,
+        seq_no: u32,
+        body: &E::Request,
+    ) -> Result<E::Response, String>
+    where
+        E: Endpoint,
+        E::Request: Serialize,
+        E::Response: DeserializeOwned,
+    {
+        let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
+            return Err("endpoint not found".into());
+        };
+
+        // find key
+        // TODO: Don't compare the types because the names don't match even though we've
+        // type-punned
+        let res = schemas.endpoints.iter().find(|e| {
+            e.path.as_str() == E::PATH
+                && e.req_key == E::REQ_KEY
+                && e.resp_key == E::RESP_KEY
+        });
+        let Some(schema) = res else {
+            return Err("endpoint not found".into());
+        };
+        let Ok(body) = postcard::to_stdvec(body) else {
+            return Err("Serialization Failed".into());
+        };
+
+        let req = ProxyRequest {
+            serial,
+            path: schema.path.clone(),
+            req_key: schema.req_key,
+            resp_key: schema.resp_key,
+            seq_no,
+            req_body: body,
+        };
+
+        let resp = self.client.send_resp::<ProxyEndpoint>(&req).await;
+
+        let resp = match resp {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(format!("Server error: {e:?}"));
+            }
+        };
+
+        let resp = match resp {
+            ProxyResponse::Ok { body, .. } => body,
+            ProxyResponse::WireErr { body, .. } => return Err(format!("WireErr: {body:?}")),
+            ProxyResponse::OtherErr(e) => return Err(format!("Other Server Err: '{e}'")),
+        };
+
+        let resp = postcard::from_bytes::<E::Response>(&resp);
+
+        match resp {
+            Ok(v) => Ok(v),
+            Err(e) => Err(format!("Decode error: '{e:?}'")),
+        }
+    }
+
     pub async fn proxy_endpoint_json(
         &self,
         serial: u64,
@@ -192,17 +257,68 @@ impl SquadClient {
         body: Value,
     ) -> Result<(), String> {
         let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
-            return Err("endpoint not found".into());
+            return Err("topic not found".into());
         };
 
         // find key
         let res = schemas.topics_in.iter().find(|e| e.path.as_str() == path);
         let Some(schema) = res else {
-            return Err("endpoint not found".into());
+            return Err("topic not found".into());
         };
 
         let Ok(body) = postcard_dyn::to_stdvec_dyn(&schema.ty, &body) else {
             todo!()
+        };
+        let req = PublishRequest {
+            serial,
+            path: schema.path.clone(),
+            topic_key: schema.key,
+            seq_no,
+            topic_body: body,
+        };
+
+        let resp = self.client.send_resp::<PublishEndpoint>(&req).await;
+
+        let resp = match resp {
+            Ok(r) => r,
+            Err(e) => {
+                return Err(format!("Server error: {e:?}"));
+            }
+        };
+
+        match resp {
+            PublishResponse::Sent => Ok(()),
+            PublishResponse::OtherErr(e) => Err(format!("Other Server Err: '{e}'")),
+        }
+    }
+
+    pub async fn publish_topic<T>(
+        &self,
+        serial: u64,
+        seq_no: u32,
+        body: &T::Message,
+    ) -> Result<(), String>
+    where
+        T: Topic,
+        T::Message: Serialize,
+    {
+        let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
+            return Err("topic not found".into());
+        };
+
+        // find key
+        // TODO: Don't compare the types because the names don't match even though we've
+        // type-punned
+        let res = schemas.topics_in.iter().find(|t| {
+            t.path.as_str() == T::PATH
+                && t.key == T::TOPIC_KEY
+        });
+        let Some(schema) = res else {
+            return Err("topic not found".into());
+        };
+
+        let Ok(body) = postcard::to_stdvec(body) else {
+            return Err("serialization failed".into());
         };
         let req = PublishRequest {
             serial,
@@ -276,6 +392,62 @@ impl SquadClient {
             stream_id,
         })
     }
+
+    /// Listen to a given topic path, receiving a subscription that yields live messages
+    pub async fn stream_topic<T>(
+        &self,
+        serial: u64,
+    ) -> Result<StreamListener<T>, String>
+    where
+        T: Topic,
+        T::Message: DeserializeOwned,
+    {
+        let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
+            return Err("topic not found".into());
+        };
+
+        // find key
+        let res = schemas
+            .topics_out
+            .iter()
+            .find(|e| {
+                e.path.as_str() == T::PATH
+                    && e.key == T::TOPIC_KEY
+            })
+            .cloned();
+        let Some(schema) = res else {
+            return Err("topic not found".into());
+        };
+
+        let sub = self
+            .client
+            .subscribe_multi::<SubscribeTopic>(64)
+            .await
+            .map_err(|e| format!("Error: {e:?}"))?;
+
+        let res = self
+            .client
+            .send_resp::<StartStreamEndpoint>(&TopicStreamRequest {
+                serial,
+                path: T::PATH.to_string(),
+                key: schema.key,
+            })
+            .await;
+
+        let stream_id = match res {
+            Ok(TopicStreamResult::Started(id)) => id,
+            Ok(TopicStreamResult::DeviceDisconnected) => return Err("Device Disconnected".into()),
+            Ok(TopicStreamResult::NoDeviceKnown) => return Err("No Device Known".into()),
+            Ok(TopicStreamResult::NoSuchTopic) => return Err("No Such Topic".into()),
+            Err(e) => return Err(format!("Error: {e:?}")),
+        };
+
+        Ok(StreamListener {
+            sub,
+            stream_id,
+            _pd: PhantomData,
+        })
+    }
 }
 
 pub struct JsonStreamListener {
@@ -305,6 +477,49 @@ impl JsonStreamListener {
             }
 
             let Ok(msg) = postcard_dyn::from_slice_dyn(&self.schema.ty, &msg) else {
+                continue;
+            };
+            return Some(msg);
+        }
+    }
+}
+
+
+pub struct StreamListener<T>
+where
+    T: Topic,
+    T::Message: DeserializeOwned,
+{
+    stream_id: Uuidv7,
+    sub: MultiSubscription<TopicStreamMsg>,
+    _pd: PhantomData<fn() ->T>,
+}
+
+impl<T> StreamListener<T>
+where
+    T: Topic,
+    T::Message: DeserializeOwned,
+{
+    /// Receive a single message from this subscription
+    ///
+    /// Returns None if the connection has been closed
+    pub async fn recv(&mut self) -> Option<T::Message> {
+        loop {
+            let msg = match self.sub.recv().await {
+                Ok(m) => m,
+                Err(MultiSubRxError::IoClosed) => return None,
+                Err(MultiSubRxError::Lagged(n)) => {
+                    tracing::warn!(stream_id = ?self.stream_id, lags = n, "Stream lagged");
+                    continue;
+                }
+            };
+
+            let TopicStreamMsg { stream_id, msg } = msg;
+            if stream_id != self.stream_id {
+                continue;
+            }
+
+            let Ok(msg) = postcard::from_bytes(&msg) else {
                 continue;
             };
             return Some(msg);

@@ -453,9 +453,9 @@ checksum = "cc9c68a3f6da06753e9335d63e27f6b9754dd1920d941135b7ea8224f141adb2"
 
 [[package]]
 name = "postcard"
-version = "1.0.10"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f7f0a8d620d71c457dd1d47df76bb18960378da56af4527aaa10f515eee732e"
+checksum = "f63d01def49fc815900a83e7a4a5083d2abc81b7ddd569a3fa0477778ae9b3ec"
 dependencies = [
  "cobs",
  "embedded-io 0.4.0",
@@ -477,9 +477,9 @@ dependencies = [
 
 [[package]]
 name = "postcard-rpc"
-version = "0.10.7"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4017d2829bbe6890effaa7b5817d0308fdce86c906ba65a8c1bffa519c138739"
+checksum = "e25a7b11aed2642b76ebfa73005b04ae039ab10b7f3146b3a6f48a2c16c44a38"
 dependencies = [
  "heapless 0.8.0",
  "maitake-sync",
@@ -496,9 +496,9 @@ dependencies = [
 
 [[package]]
 name = "postcard-schema"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30a3e7acbdb61449280eb8c54126ecfb10571ec06add5c60d014c675f029e7d2"
+checksum = "f7532d2f032349d41dc760c9fe5247fcb5660c689caf4884822603983a5a9a66"
 dependencies = [
  "chrono",
  "postcard-derive",
@@ -508,7 +508,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-api-icd"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "postcard-rpc",

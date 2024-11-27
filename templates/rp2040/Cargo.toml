@@ -11,9 +11,9 @@ embassy-sync            = { version = "0.6.0", features = ["defmt"] }
 embassy-time            = { version = "0.3.2", features = ["defmt", "defmt-timestamp-uptime"] }
 embassy-usb             = { version = "0.3.0", features = ["defmt"] }
 panic-probe             = { version = "0.3",   features = ["print-defmt"] }
-postcard-rpc            = { version = "0.10.5",   features = ["embassy-usb-0_3-server"] }
-postcard                = { version = "1.0.8" }
-postcard-schema         = { version = "0.1.0", features = ["derive"] }
+postcard-rpc            = { version = "0.11.0",   features = ["embassy-usb-0_3-server"] }
+postcard                = { version = "1.1.0" }
+postcard-schema         = { version = "0.2.0", features = ["derive"] }
 portable-atomic         = { version = "1.6.0", features = ["critical-section"] }
 cortex-m-rt             = "0.7.0"
 defmt                   = "0.3"

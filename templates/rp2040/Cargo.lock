@@ -1007,9 +1007,9 @@ dependencies = [
 
 [[package]]
 name = "postcard"
-version = "1.0.8"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a55c51ee6c0db07e68448e336cf8ea4131a620edefebf9893e759b2d793420f8"
+checksum = "f63d01def49fc815900a83e7a4a5083d2abc81b7ddd569a3fa0477778ae9b3ec"
 dependencies = [
  "cobs",
  "heapless 0.7.17",
@@ -1029,9 +1029,9 @@ dependencies = [
 
 [[package]]
 name = "postcard-rpc"
-version = "0.10.5"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f4c2b38164e722441506513712a1e3b2aac76bd56ded7ddaa34a646378a09628"
+checksum = "e25a7b11aed2642b76ebfa73005b04ae039ab10b7f3146b3a6f48a2c16c44a38"
 dependencies = [
  "embassy-executor",
  "embassy-futures 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1049,9 +1049,9 @@ dependencies = [
 
 [[package]]
 name = "postcard-schema"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "30a3e7acbdb61449280eb8c54126ecfb10571ec06add5c60d014c675f029e7d2"
+checksum = "f7532d2f032349d41dc760c9fe5247fcb5660c689caf4884822603983a5a9a66"
 dependencies = [
  "postcard-derive",
  "serde",
