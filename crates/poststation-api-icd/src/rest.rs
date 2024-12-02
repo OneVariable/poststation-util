@@ -18,7 +18,6 @@ pub struct DeviceData {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
 pub struct LogRequest {
-    pub serial: String,
     pub count: u32,
 }
 
@@ -31,7 +30,6 @@ pub struct Log {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
 pub struct TopicRequest {
-    pub serial: u64,
     pub path: String,
     pub key: foreign::Key,
     pub count: u32,
@@ -45,7 +43,6 @@ pub struct TopicMsg {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
 pub struct TopicStreamRequest {
-    pub serial: u64,
     pub path: String,
     pub key: foreign::Key,
 }
@@ -66,7 +63,6 @@ pub enum TopicStreamResult {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ProxyRequest {
-    pub serial: u64,
     pub path: String,
     pub req_key: foreign::Key,
     pub resp_key: foreign::Key,
@@ -90,7 +86,6 @@ pub enum ProxyResponse {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct PublishRequest {
-    pub serial: u64,
     pub path: String,
     pub topic_key: foreign::Key,
     pub seq_no: u32,
