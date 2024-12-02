@@ -21,3 +21,12 @@ features = [
 [dependencies.uuid]
 version = "1.10.0"
 features = ["v7", "serde"]
+
+[dependencies.schemars]
+version = "0.8.21"
+optional = true
+
+[features]
+default = ["rest-api"]
+rest-api = ["schemars-v0_8"]
+schemars-v0_8 = ["dep:schemars"]

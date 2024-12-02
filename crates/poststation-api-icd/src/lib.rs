@@ -6,6 +6,9 @@ use postcard_schema::Schema;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[cfg(feature = "rest-api")]
+pub mod rest;
+
 pub type DeviceDatas = Vec<DeviceData>;
 pub type OptSchemaReport = Option<SchemaReport>;
 pub type OptVecLog = Option<Vec<Log>>;
