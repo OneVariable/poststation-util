@@ -12,6 +12,10 @@ chrono = { version = "0.4.38", features = ["serde"] }
 postcard-schema = { version = "0.2.0", features = ["chrono-v0_4", "postcard-derive", "use-std", "uuid-v1_0"] }
 serde = "1.0"
 
+[dependencies.serde_json]
+version = "1.0.133"
+optional = true
+
 [dependencies.postcard-rpc]
 version = "0.11.0"
 features = [
@@ -29,5 +33,5 @@ features = ["uuid1"]
 
 [features]
 default = ["rest-api"]
-rest-api = ["schemars-v0_8"]
+rest-api = ["schemars-v0_8", "serde_json"]
 schemars-v0_8 = ["dep:schemars"]

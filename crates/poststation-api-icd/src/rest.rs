@@ -40,7 +40,7 @@ pub struct TopicRequest {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
 pub struct TopicMsg {
     pub uuidv7: Uuid,
-    pub msg: Vec<u8>,
+    pub msg: serde_json::Value,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
@@ -53,7 +53,7 @@ pub struct TopicStreamRequest {
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
 pub struct TopicStreamMsg {
     pub stream_id: Uuid,
-    pub msg: Vec<u8>,
+    pub msg: serde_json::Value,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
@@ -71,7 +71,6 @@ pub struct ProxyRequest {
     pub req_key: foreign::Key,
     pub resp_key: foreign::Key,
     pub seq_no: u32,
-    pub req_body: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -79,7 +78,7 @@ pub enum ProxyResponse {
     Ok {
         resp_key: foreign::Key,
         seq_no: u32,
-        body: Vec<u8>,
+        body: serde_json::Value,
     },
     WireErr {
         resp_key: foreign::Key,
@@ -95,7 +94,6 @@ pub struct PublishRequest {
     pub path: String,
     pub topic_key: foreign::Key,
     pub seq_no: u32,
-    pub topic_body: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]

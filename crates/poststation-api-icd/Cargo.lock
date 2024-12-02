@@ -527,6 +527,7 @@ dependencies = [
  "postcard-schema",
  "schemars",
  "serde",
+ "serde_json",
  "uuid",
 ]
 
