@@ -29,4 +29,8 @@ optional = true
 [features]
 default = ["rest-api"]
 rest-api = ["schemars-v0_8"]
-schemars-v0_8 = ["dep:schemars"]
+schemars-v0_8 = ["dep:schemars", "postcard-schema/schemars-v0_8"]
+
+[patch.crates-io]
+postcard-schema = { git = "https://github.com/jamesmunns/postcard", rev = "bc55aaf024e3de5aa5c6d7fde9cb664c959b49dc" }
+
