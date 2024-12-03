@@ -67,6 +67,7 @@ pub struct ProxyRequest {
     pub req_key: foreign::Key,
     pub resp_key: foreign::Key,
     pub seq_no: u32,
+    pub body: serde_json::Value,
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -91,6 +92,7 @@ pub struct PublishRequest {
     pub path: String,
     pub topic_key: foreign::Key,
     pub seq_no: u32,
+    pub body: serde_json::Value,
 }
 
 /// These are types from other crates I'm pasting here just so I can impl JsonSchema on it
