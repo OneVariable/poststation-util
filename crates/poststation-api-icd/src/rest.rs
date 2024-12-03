@@ -70,12 +70,14 @@ pub struct ProxyRequest {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub enum ProxyResponse {
-    Ok {
-        resp_key: foreign::Key,
-        seq_no: u32,
-        body: serde_json::Value,
-    },
+pub struct ProxyResponseOk{
+    pub resp_key: foreign::Key,
+    pub seq_no: u32,
+    pub body: serde_json::Value,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub enum ProxyResponseError {
     WireErr {
         resp_key: foreign::Key,
         seq_no: u32,
@@ -89,12 +91,6 @@ pub struct PublishRequest {
     pub path: String,
     pub topic_key: foreign::Key,
     pub seq_no: u32,
-}
-
-#[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub enum PublishResponse {
-    Sent,
-    OtherErr(String),
 }
 
 /// These are types from other crates I'm pasting here just so I can impl JsonSchema on it
