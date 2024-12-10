@@ -21,6 +21,7 @@ endpoints! {
     | GetDevicesEndpoint    | ()                    | DeviceDatas       | "rack/devices/get"            |
     | GetSchemasEndpoint    | u64                   | OptSchemaReport   | "rack/devices/schemas/get"    |
     | GetLogsEndpoint       | LogRequest            | OptVecLog         | "rack/devices/logs/get"       |
+    | GetLogsRangeEndpoint  | LogRangeRequest       | OptVecLog         | "rack/devices/logs/range/get" |
     | GetTopicsEndpoint     | TopicRequest          | OptVecTopicMsg    | "rack/devices/topics/get"     |
     | ProxyEndpoint         | ProxyRequest          | ProxyResponse     | "rack/devices/proxy"          |
     | PublishEndpoint       | PublishRequest        | PublishResponse   | "rack/devices/publish"        |
@@ -56,6 +57,25 @@ pub struct DeviceData {
 pub struct LogRequest {
     pub serial: u64,
     pub count: u32,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Schema)]
+pub struct LogRangeRequest {
+    pub serial: u64,
+    pub anchor: Anchor,
+    pub count: u32,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Schema)]
+pub enum Direction {
+    Before,
+    After,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, Schema)]
+pub enum Anchor {
+    Uuid(Uuidv7),
+    UnixMsTs(u64),
 }
 
 // TODO: now that postcard-schema has a Schema impl for Uuid we might
