@@ -63,6 +63,7 @@ pub struct LogRequest {
 pub struct LogRangeRequest {
     pub serial: u64,
     pub anchor: Anchor,
+    pub direction: Direction,
     pub count: u32,
 }
 
