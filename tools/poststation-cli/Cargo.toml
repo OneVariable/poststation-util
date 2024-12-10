@@ -44,3 +44,7 @@ features = [
 [dependencies.postcard]
 version = "1.1.0"
 features = ["experimental-derive", "use-std"]
+
+[dependencies.uuid]
+version = "1.10.0"
+features = ["v7", "serde"]

@@ -781,6 +781,7 @@ dependencies = [
  "poststation-sdk",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -3,6 +3,7 @@ use std::{collections::HashSet, net::SocketAddr, time::Instant};
 use anyhow::bail;
 use clap::{command, Args, Parser, Subcommand};
 use postcard_rpc::host_client::SchemaReport;
+use poststation_api_icd::Direction;
 use poststation_sdk::{
     connect,
     schema::schema::{
@@ -11,6 +12,7 @@ use poststation_sdk::{
     },
     SquadClient,
 };
+use uuid::Uuid;
 
 /// The Poststation CLI
 #[derive(Parser)]
@@ -82,6 +84,8 @@ enum DeviceCommands {
     TopicsIn,
     /// View the most recent logs from a given device
     Logs { count: Option<u32> },
+    /// View the most recent logs from a given device
+    LogsRange { count: Option<u32>, start: String, direction: String },
 }
 
 #[tokio::main]
@@ -262,7 +266,7 @@ async fn device_publish(
 async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()> {
     let serial = u64::from_str_radix(&device.serial, 16)?;
     let schema = client.get_device_schemas(serial).await.unwrap().unwrap();
-    match device.command {
+    match &device.command {
         DeviceCommands::Types => {
             println!();
             println!("Types used by device {}", device.serial);
@@ -329,11 +333,39 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
             println!("Logs (last {} messages):", count.min(logs.len() as u32));
             println!();
             for log in logs {
-                println!("* {} => {}", log.uuidv7.id_to_time().time(), log.msg);
+                // println!("* {} => {}", log.uuidv7.id_to_time().time(), log.msg);
+                let time = log.uuidv7.id_to_time().time();
+                println!("* {} ({}) => {}", uuid::Uuid::from(log.uuidv7), time, log.msg);
             }
             println!();
             Ok(())
         }
+        DeviceCommands::LogsRange { count, start, direction } => {
+            let count = count.unwrap_or(8);
+            let start = start.parse::<Uuid>().unwrap();
+            let dir = match direction.to_lowercase().as_str() {
+                "after" => Direction::After,
+                "before" => Direction::Before,
+                _ => todo!()
+            };
+
+            let logs = client
+                .get_device_logs_range(serial, count, dir, poststation_api_icd::Anchor::Uuid(start.into()))
+                .await
+                .unwrap()
+                .unwrap();
+
+            println!();
+            println!("Logs (last {} messages):", count.min(logs.len() as u32));
+            println!();
+            for log in logs {
+                // println!("* {} => {}", log.uuidv7.id_to_time().time(), log.msg);
+                let time = log.uuidv7.id_to_time().time();
+                println!("* {} ({}) => {}", uuid::Uuid::from(log.uuidv7), time, log.msg);
+            }
+            println!();
+            Ok(())
+        },
     }
 }
 

@@ -27,6 +27,24 @@ pub struct Log {
     pub msg: String,
 }
 
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
+pub struct LogRangeRequest {
+    pub anchor: Anchor,
+    pub direction: Direction,
+    pub count: u32,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
+pub enum Direction {
+    Before,
+    After,
+}
+
+#[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
+pub enum Anchor {
+    Uuid(Uuid),
+    UnixMsTs(u64),
+}
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
 pub struct TopicRequest {
