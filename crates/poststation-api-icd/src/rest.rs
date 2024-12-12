@@ -1,7 +1,229 @@
 //! Rest API version of types
 //!
 //! This uses Schemars instead of postcard-schema, and avoid types like `u64` that
-//! will make JSON/JS sad
+//! will make JSON/JS sad.
+//!
+//! At some point in the future we will publish an OpenAPI spec for all available requests.
+//! For now, here is a listing of all endpoints and an example CURL request for each of them.
+//!
+//! ## "Get Devices"
+//!
+//! ```sh
+//! curl http://localhost:4444/api/devices -q -H "Accept: application/json"
+//! ```
+//!
+//! ```json
+//! [
+//!   {
+//!     "serial": "3836363937050630",
+//!     "name": "XRAY-013",
+//!     "is_connected": false,
+//!     "manufacturer": "OneVariable",
+//!     "product": "poststation-pico"
+//!   },
+//!   {
+//!     "serial": "6E43B25479AC185C",
+//!     "name": "YACHTY-312",
+//!     "is_connected": true,
+//!     "manufacturer": "Simulator",
+//!     "product": "Product"
+//!   },
+//! ]
+//! ```
+//!
+//! ## "Get Schemas"
+//!
+//! ```sh
+//!  curl http://localhost:4444/api/devices/CA9FF06E058FF9A6/schemas -q -H "Accept: application/json"
+//! ```
+//!
+//! Output: <https://gist.github.com/jamesmunns/0a533d8ed8ffbbc34c282da848a162fd>
+//!
+//! ## "Get Logs"
+//!
+//! ```sh
+//! curl 'http://localhost:4444/api/devices/3836363937050630/logs?serial=3836363937050630&count=2' \
+//! -q -H "Accept: application/json"
+//! ```
+//!
+//! ```json
+//! [
+//!   {
+//!     "uuidv7": "01936033-6231-71f2-9200-49361527b270",
+//!     "msg": "Uptime: Duration { ticks: 1347000000 } freq: 125000000"
+//!   },
+//!   {
+//!     "uuidv7": "01936033-6de8-7db0-8a7c-00563efac872",
+//!     "msg": "Uptime: Duration { ticks: 1350000000 } freq: 125000000"
+//!   }
+//! ]
+//! ```
+//!
+//! ## "Get Range of logs"
+//!
+//! This API is used as a paginated version of "Get Logs". You can use either a UTC millisecond timestamp
+//! or the UUIDv7 of a log item as the "anchor" of the request, and then request N logs "Before" or "After" the
+//! anchor (excluding the anchor itself).
+//!
+//! ### Using a UUIDv7 of a log entry as the anchor
+//!
+//! ```sh
+//! curl 'http://localhost:4444/api/devices/3836363937050630/logs/range?serial=3836363937050630&count=4&uuid=01936032-e149-7e92-b4ca-f7e8a30e11cb&direction=After' \
+//!   -q -H "Accept: application/json" | jq
+//! ```
+//!
+//! ```json
+//! [
+//!   {
+//!     "uuidv7": "01936033-1029-7e32-8b45-dc4595c98ee8",
+//!     "msg": "Uptime: Duration { ticks: 1326000000 } freq: 125000000"
+//!   },
+//!   {
+//!     "uuidv7": "01936033-0471-7912-9eaa-f3db32a47387",
+//!     "msg": "Uptime: Duration { ticks: 1323000000 } freq: 125000000"
+//!   },
+//!   {
+//!     "uuidv7": "01936032-f8b9-78e1-929e-99051b2bba64",
+//!     "msg": "Uptime: Duration { ticks: 1320000000 } freq: 125000000"
+//!   },
+//!   {
+//!     "uuidv7": "01936032-ed01-7ca0-99ad-f9ccac6c7e22",
+//!     "msg": "Uptime: Duration { ticks: 1317000000 } freq: 125000000"
+//!   }
+//! ]
+//! ```
+//!
+//! ### Using a unix millisecond timestamp as the anchor
+//!
+//! ```sh
+//! curl 'http://localhost:4444/api/devices/3836363937050630/logs/range?serial=3836363937050630&count=4&unix_ms_ts=1732485767497&direction=After' \
+//! -q -H "Accept: application/json" | jq
+//!
+//! ```json
+//! [
+//!   {
+//!     "uuidv7": "01936033-0471-7912-9eaa-f3db32a47387",
+//!     "msg": "Uptime: Duration { ticks: 1323000000 } freq: 125000000"
+//!   },
+//!   {
+//!     "uuidv7": "01936032-f8b9-78e1-929e-99051b2bba64",
+//!     "msg": "Uptime: Duration { ticks: 1320000000 } freq: 125000000"
+//!   },
+//!   {
+//!     "uuidv7": "01936032-ed01-7ca0-99ad-f9ccac6c7e22",
+//!     "msg": "Uptime: Duration { ticks: 1317000000 } freq: 125000000"
+//!   },
+//!   {
+//!     "uuidv7": "01936032-e149-7e92-b4ca-f7e8a30e11cb",
+//!     "msg": "Uptime: Duration { ticks: 1314000000 } freq: 125000000"
+//!   }
+//! ]
+//! ```
+//!
+//! ## "Get Topic Messages"
+//!
+//! ```sh
+//! curl 'http://localhost:4444/api/devices/CA9FF06E058FF9A6/topics?path=simulator/temperature&key=583A352440D70716&count=3' \
+//!     -H "Accept: application/json"
+//! ```
+//!
+//! ```json
+//! [
+//!   {
+//!     "uuidv7": "01938dff-2bad-7ae1-9e3f-0ce6e2805ec0",
+//!     "msg": {
+//!       "temp": 3207.5660993151787
+//!     }
+//!   },
+//!   {
+//!     "uuidv7": "01938dff-2da1-7301-9654-7e3d338cf1eb",
+//!     "msg": {
+//!       "temp": 3210.7076919687684
+//!     }
+//!   },
+//!   {
+//!     "uuidv7": "01938dff-2f95-7b22-b71b-16dcd0c34f5a",
+//!     "msg": {
+//!       "temp": 3213.8492846223585
+//!     }
+//!   }
+//! ]
+//! ```
+//!
+//! ## "Proxy an endpoint request"
+//!
+//! ```sh
+//! curl \
+//!     -X POST \
+//!     -H 'Content-Type: application/json' \
+//!     -H "Accept: application/json" \
+//!     'http://localhost:4444/api/devices/CA9FF06E058FF9A6/proxy' \
+//!     -d '{
+//!         "path": "postcard-rpc/ping",
+//!         "req_key": "E8EDEF24F26C7C91",
+//!         "resp_key": "E8EDEF24F26C7C91",
+//!         "seq_no": 0,
+//!         "body": 123
+//!     }'
+//! ```
+//!
+//! ```json
+//! {
+//!   "resp_key": "E8EDEF24F26C7C91",
+//!   "seq_no": 0,
+//!   "body": 123
+//! }
+//! ```
+//!
+//! ## "Proxy a topic publish"
+//!
+//! ```sh
+//! curl \
+//!     -X POST \
+//!     -H 'Content-Type: application/json' \
+//!     -H "Accept: application/json" \
+//!     'http://localhost:4444/api/devices/CA9FF06E058FF9A6/publish' \
+//!     -d '{
+//!         "path": "some/topic/into/server",
+//!         "topic_key": "E8EDEF24F26C7C91",
+//!         "seq_no": 0,
+//!         "body": { "some": "payload" }
+//!     }'
+//! ```
+//!
+//! ```json
+//! {}
+//! ```
+//!
+//! # "Subscribe to a stream of topic_out messages"
+//!
+//! This is a **WebSocket** endpoint, which gives you a live feed of a specific topic from a
+//! specific device.
+//!
+//! ```sh
+//! websocat "ws://localhost:4444/api/devices/CA9FF06E058FF9A6/listen?path=simulator/temperature&key=583A352440D70716" | jq
+//! ```
+//!
+//! ```json
+//! {
+//!   "msg": {
+//!     "temp": 2726.9024233159403
+//!   },
+//!   "seq_no": 868
+//! }
+//! {
+//!   "msg": {
+//!     "temp": 2730.0440159695304
+//!   },
+//!   "seq_no": 869
+//! }
+//! {
+//!   "msg": {
+//!     "temp": 2733.18560862312
+//!   },
+//!   "seq_no": 870
+//! }
+//! ```
 
 use serde::{Serialize, Deserialize};
 use schemars::JsonSchema;
