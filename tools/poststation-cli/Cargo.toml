@@ -1,6 +1,6 @@
 [package]
 name = "poststation-cli"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["James Munns <james@onevariable.com>"]
 description = "A CLI tool for poststation"
@@ -24,11 +24,11 @@ features = ["use-std"]
 
 [dependencies.poststation-api-icd]
 path = "../../crates/poststation-api-icd"
-version = "0.2.0"
+version = "0.3.0"
 
 [dependencies.poststation-sdk]
 path = "../poststation-sdk"
-version = "0.2.0"
+version = "0.3.0"
 
 
 [dependencies.tokio]
@@ -44,3 +44,7 @@ features = [
 [dependencies.postcard]
 version = "1.1.0"
 features = ["experimental-derive", "use-std"]
+
+[dependencies.uuid]
+version = "1.10.0"
+features = ["v7", "serde"]

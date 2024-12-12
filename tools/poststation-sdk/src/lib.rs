@@ -10,11 +10,8 @@ use postcard_rpc::{
     standard_icd::{PingEndpoint, WireError, ERROR_PATH},
     Endpoint, Topic,
 };
-use poststation_api_icd::{
-    DeviceData, GetDevicesEndpoint, GetLogsEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log,
-    LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest,
-    PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg,
-    TopicStreamRequest, TopicStreamResult, Uuidv7,
+use poststation_api_icd::postsock::{
+    Anchor, DeviceData, Direction, GetDevicesEndpoint, GetLogsEndpoint, GetLogsRangeEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRangeRequest, LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest, PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg, TopicStreamRequest, TopicStreamResult, Uuidv7
 };
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
@@ -26,6 +23,7 @@ use tokio::{
 };
 
 pub use postcard_schema as schema;
+pub use poststation_api_icd as icd;
 
 // ---
 
@@ -61,6 +59,13 @@ impl SquadClient {
     pub async fn get_device_logs(&self, serial: u64, count: u32) -> Result<Option<Vec<Log>>, ()> {
         self.client
             .send_resp::<GetLogsEndpoint>(&LogRequest { serial, count })
+            .await
+            .map_err(drop)
+    }
+
+    pub async fn get_device_logs_range(&self, serial: u64, count: u32, dir: Direction, anchor: Anchor) -> Result<Option<Vec<Log>>, ()> {
+        self.client
+            .send_resp::<GetLogsRangeEndpoint>(&LogRangeRequest { serial, count, anchor, direction: dir })
             .await
             .map_err(drop)
     }
