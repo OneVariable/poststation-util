@@ -10,7 +10,7 @@ use postcard_rpc::{
     standard_icd::{PingEndpoint, WireError, ERROR_PATH},
     Endpoint, Topic,
 };
-use poststation_api_icd::{
+use poststation_api_icd::postsock::{
     Anchor, DeviceData, Direction, GetDevicesEndpoint, GetLogsEndpoint, GetLogsRangeEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRangeRequest, LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest, PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg, TopicStreamRequest, TopicStreamResult, Uuidv7
 };
 use serde::{de::DeserializeOwned, Serialize};

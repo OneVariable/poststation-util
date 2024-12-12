@@ -758,7 +758,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-api-icd"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "chrono",
  "postcard-rpc",
@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -786,7 +786,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-sdk"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "cobs",
  "postcard",

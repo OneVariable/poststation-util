@@ -3,7 +3,7 @@ use std::{collections::HashSet, net::SocketAddr, time::Instant};
 use anyhow::bail;
 use clap::{command, Args, Parser, Subcommand};
 use postcard_rpc::host_client::SchemaReport;
-use poststation_api_icd::Direction;
+use poststation_api_icd::postsock::Direction;
 use poststation_sdk::{
     connect,
     schema::schema::{
@@ -346,11 +346,11 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
             let dir = match direction.to_lowercase().as_str() {
                 "after" => Direction::After,
                 "before" => Direction::Before,
-                _ => todo!()
+                _ => panic!("Should provide 'after' or 'before' for direction"),
             };
 
             let logs = client
-                .get_device_logs_range(serial, count, dir, poststation_api_icd::Anchor::Uuid(start.into()))
+                .get_device_logs_range(serial, count, dir, poststation_api_icd::postsock::Anchor::Uuid(start.into()))
                 .await
                 .unwrap()
                 .unwrap();
