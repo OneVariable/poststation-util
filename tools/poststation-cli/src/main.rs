@@ -85,7 +85,11 @@ enum DeviceCommands {
     /// View the most recent logs from a given device
     Logs { count: Option<u32> },
     /// View the most recent logs from a given device
-    LogsRange { count: Option<u32>, start: String, direction: String },
+    LogsRange {
+        count: Option<u32>,
+        start: String,
+        direction: String,
+    },
 }
 
 #[tokio::main]
@@ -112,7 +116,10 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
 
     match command {
         Commands::Ls => {
-            let devices = client.get_devices().await.unwrap();
+            let devices = client
+                .get_devices()
+                .await
+                .expect("expected to be able to get devices from server");
             println!();
             println!("# Devices");
             println!();
@@ -144,8 +151,8 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             let schema = client
                 .get_device_schemas(serial_num)
                 .await
-                .unwrap()
-                .unwrap();
+                .expect("expected to be able to get schemas for device")
+                .expect("expected device to have schemas known by the server");
 
             println!();
             println!("# Endpoints for {serial}");
@@ -265,7 +272,11 @@ async fn device_publish(
 
 async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()> {
     let serial = u64::from_str_radix(&device.serial, 16)?;
-    let schema = client.get_device_schemas(serial).await.unwrap().unwrap();
+    let schema = client
+        .get_device_schemas(serial)
+        .await
+        .expect("expected to get schemas for device")
+        .expect("expected device to have known schemas");
     match &device.command {
         DeviceCommands::Types => {
             println!();
@@ -326,8 +337,8 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
             let logs = client
                 .get_device_logs(serial, count)
                 .await
-                .unwrap()
-                .unwrap();
+                .expect("expected to be able to get logs for device")
+                .expect("expected device to have known logs");
 
             println!();
             println!("Logs (last {} messages):", count.min(logs.len() as u32));
@@ -335,25 +346,39 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
             for log in logs {
                 // println!("* {} => {}", log.uuidv7.id_to_time().time(), log.msg);
                 let time = log.uuidv7.id_to_time().time();
-                println!("* {} ({}) => {}", uuid::Uuid::from(log.uuidv7), time, log.msg);
+                println!(
+                    "* {} ({}) => {}",
+                    uuid::Uuid::from(log.uuidv7),
+                    time,
+                    log.msg
+                );
             }
             println!();
             Ok(())
         }
-        DeviceCommands::LogsRange { count, start, direction } => {
+        DeviceCommands::LogsRange {
+            count,
+            start,
+            direction,
+        } => {
             let count = count.unwrap_or(8);
-            let start = start.parse::<Uuid>().unwrap();
+            let start = start.parse::<Uuid>()?;
             let dir = match direction.to_lowercase().as_str() {
                 "after" => Direction::After,
                 "before" => Direction::Before,
-                _ => panic!("Should provide 'after' or 'before' for direction"),
+                _ => bail!("Should provide 'after' or 'before' for direction"),
             };
 
             let logs = client
-                .get_device_logs_range(serial, count, dir, poststation_api_icd::postsock::Anchor::Uuid(start.into()))
+                .get_device_logs_range(
+                    serial,
+                    count,
+                    dir,
+                    poststation_api_icd::postsock::Anchor::Uuid(start.into()),
+                )
                 .await
-                .unwrap()
-                .unwrap();
+                .expect("expected to be able to get log range for device")
+                .expect("expected device to have known logs");
 
             println!();
             println!("Logs (last {} messages):", count.min(logs.len() as u32));
@@ -361,11 +386,16 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
             for log in logs {
                 // println!("* {} => {}", log.uuidv7.id_to_time().time(), log.msg);
                 let time = log.uuidv7.id_to_time().time();
-                println!("* {} ({}) => {}", uuid::Uuid::from(log.uuidv7), time, log.msg);
+                println!(
+                    "* {} ({}) => {}",
+                    uuid::Uuid::from(log.uuidv7),
+                    time,
+                    log.msg
+                );
             }
             println!();
             Ok(())
-        },
+        }
     }
 }
 
@@ -383,7 +413,10 @@ async fn guess_serial(serial: &str, client: &SquadClient) -> anyhow::Result<u64>
     }
 
     if serial_num.is_none() {
-        let devices = client.get_devices().await.unwrap();
+        let devices = client
+            .get_devices()
+            .await
+            .expect("expected to be able to get devices");
         let uppy = serial.to_uppercase();
         let matches = devices
             .iter()

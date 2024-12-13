@@ -11,7 +11,11 @@ use postcard_rpc::{
     Endpoint, Topic,
 };
 use poststation_api_icd::postsock::{
-    Anchor, DeviceData, Direction, GetDevicesEndpoint, GetLogsEndpoint, GetLogsRangeEndpoint, GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRangeRequest, LogRequest, ProxyEndpoint, ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest, PublishResponse, StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg, TopicStreamRequest, TopicStreamResult, Uuidv7
+    Anchor, DeviceData, Direction, GetDevicesEndpoint, GetLogsEndpoint, GetLogsRangeEndpoint,
+    GetSchemasEndpoint, GetTopicsEndpoint, Log, LogRangeRequest, LogRequest, ProxyEndpoint,
+    ProxyRequest, ProxyResponse, PublishEndpoint, PublishRequest, PublishResponse,
+    StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg,
+    TopicStreamRequest, TopicStreamResult, Uuidv7,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
@@ -63,9 +67,20 @@ impl SquadClient {
             .map_err(drop)
     }
 
-    pub async fn get_device_logs_range(&self, serial: u64, count: u32, dir: Direction, anchor: Anchor) -> Result<Option<Vec<Log>>, ()> {
+    pub async fn get_device_logs_range(
+        &self,
+        serial: u64,
+        count: u32,
+        dir: Direction,
+        anchor: Anchor,
+    ) -> Result<Option<Vec<Log>>, ()> {
         self.client
-            .send_resp::<GetLogsRangeEndpoint>(&LogRangeRequest { serial, count, anchor, direction: dir })
+            .send_resp::<GetLogsRangeEndpoint>(&LogRangeRequest {
+                serial,
+                count,
+                anchor,
+                direction: dir,
+            })
             .await
             .map_err(drop)
     }
@@ -159,9 +174,7 @@ impl SquadClient {
         // TODO: Don't compare the types because the names don't match even though we've
         // type-punned
         let res = schemas.endpoints.iter().find(|e| {
-            e.path.as_str() == E::PATH
-                && e.req_key == E::REQ_KEY
-                && e.resp_key == E::RESP_KEY
+            e.path.as_str() == E::PATH && e.req_key == E::REQ_KEY && e.resp_key == E::RESP_KEY
         });
         let Some(schema) = res else {
             return Err("endpoint not found".into());
@@ -220,7 +233,9 @@ impl SquadClient {
         };
 
         let Ok(body) = postcard_dyn::to_stdvec_dyn(&schema.req_ty, &body) else {
-            todo!()
+            return Err(
+                "provided JSON does not match the expected schema for this endpoint".into(),
+            );
         };
         let req = ProxyRequest {
             serial,
@@ -272,7 +287,7 @@ impl SquadClient {
         };
 
         let Ok(body) = postcard_dyn::to_stdvec_dyn(&schema.ty, &body) else {
-            todo!()
+            return Err("provided JSON does not match the schema for this topic".into());
         };
         let req = PublishRequest {
             serial,
@@ -314,10 +329,10 @@ impl SquadClient {
         // find key
         // TODO: Don't compare the types because the names don't match even though we've
         // type-punned
-        let res = schemas.topics_in.iter().find(|t| {
-            t.path.as_str() == T::PATH
-                && t.key == T::TOPIC_KEY
-        });
+        let res = schemas
+            .topics_in
+            .iter()
+            .find(|t| t.path.as_str() == T::PATH && t.key == T::TOPIC_KEY);
         let Some(schema) = res else {
             return Err("topic not found".into());
         };
@@ -399,10 +414,7 @@ impl SquadClient {
     }
 
     /// Listen to a given topic path, receiving a subscription that yields live messages
-    pub async fn stream_topic<T>(
-        &self,
-        serial: u64,
-    ) -> Result<StreamListener<T>, String>
+    pub async fn stream_topic<T>(&self, serial: u64) -> Result<StreamListener<T>, String>
     where
         T: Topic,
         T::Message: DeserializeOwned,
@@ -415,10 +427,7 @@ impl SquadClient {
         let res = schemas
             .topics_out
             .iter()
-            .find(|e| {
-                e.path.as_str() == T::PATH
-                    && e.key == T::TOPIC_KEY
-            })
+            .find(|e| e.path.as_str() == T::PATH && e.key == T::TOPIC_KEY)
             .cloned();
         let Some(schema) = res else {
             return Err("topic not found".into());
@@ -489,7 +498,6 @@ impl JsonStreamListener {
     }
 }
 
-
 pub struct StreamListener<T>
 where
     T: Topic,
@@ -497,7 +505,7 @@ where
 {
     stream_id: Uuidv7,
     sub: MultiSubscription<TopicStreamMsg>,
-    _pd: PhantomData<fn() ->T>,
+    _pd: PhantomData<fn() -> T>,
 }
 
 impl<T> StreamListener<T>
@@ -533,9 +541,15 @@ where
 }
 
 pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> SquadClient {
-    let socket = TcpStream::connect(addr).await.unwrap();
-    let addr = socket.peer_addr().unwrap();
-    socket.set_nodelay(true).unwrap();
+    let socket = TcpStream::connect(addr)
+        .await
+        .expect("expected to be able to connect to server");
+    let addr = socket
+        .peer_addr()
+        .expect("expected to have peer address for server");
+    socket
+        .set_nodelay(true)
+        .expect("expected to be able to set nodelay on socket");
     let (rx, tx) = socket.into_split();
 
     let client = HostClient::<WireError>::new_with_wire(
@@ -551,8 +565,11 @@ pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> SquadClient {
         64,
     );
 
-    let res = client.send_resp::<PingEndpoint>(&42).await.unwrap();
-    assert_eq!(res, 42);
+    let res = client
+        .send_resp::<PingEndpoint>(&42)
+        .await
+        .expect("expected to be able to ping poststation server socket, ping failed");
+    assert_eq!(res, 42, "sanity check failed: ping mismatch");
 
     SquadClient { client }
 }
