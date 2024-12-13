@@ -771,7 +771,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-cli"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -786,7 +786,7 @@ dependencies = [
 
 [[package]]
 name = "poststation-sdk"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "cobs",
  "postcard",
