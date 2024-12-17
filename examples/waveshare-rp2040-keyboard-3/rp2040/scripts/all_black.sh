@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -euxo pipefail
+
+# You can find your serial using `poststation-cli ls`
+SERIAL="E66350865F164926"
+
+poststation-cli \
+    proxy \
+    --serial=$SERIAL \
+    --path='keyboard/rgb/set' \
+    --message='{"color": {"r": 0, "g": 0, "b": 0}, "position": "One"}'
+
+poststation-cli \
+    proxy \
+    --serial=$SERIAL \
+    --path='keyboard/rgb/set' \
+    --message='{"color": {"r": 0, "g": 0, "b": 0}, "position": "Two"}'
+
+poststation-cli \
+    proxy \
+    --serial=$SERIAL \
+    --path='keyboard/rgb/set' \
+    --message='{"color": {"r": 0, "g": 0, "b": 0}, "position": "Three"}'
