@@ -1,7 +1,7 @@
 use core::sync::atomic::{compiler_fence, Ordering};
 
 use embassy_time::{Instant, Timer};
-use keyboard_3_icd::{LedState, Leds, SetRgbLed, SleepEndpoint, SleepMillis, SleptMillis};
+use keyboard_3_icd::{LedState, Position, SetRgbLed, SleepEndpoint, SleepMillis, SleptMillis};
 use postcard_rpc::{header::VarHeader, server::Sender};
 use smart_leds::RGB8;
 
@@ -38,9 +38,9 @@ pub fn get_led(context: &mut Context, _header: VarHeader, _arg: ()) -> LedState 
 
 pub async fn set_rgb_led(context: &mut Context, _header: VarHeader, arg: SetRgbLed) {
     let pos = match arg.position {
-        Leds::One => 0,
-        Leds::Two => 1,
-        Leds::Three => 2,
+        Position::One => 0,
+        Position::Two => 1,
+        Position::Three => 2,
     };
     // NOTE: These are SK6812 or similar clones? red and green are swapped.
     context.rgb_state[pos] = RGB8 {

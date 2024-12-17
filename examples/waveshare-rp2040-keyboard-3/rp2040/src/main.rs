@@ -11,9 +11,11 @@ use embassy_rp::{
     pio::Pio,
     usb,
 };
-use embassy_time::{Duration, Instant, Ticker};
+use embassy_time::{Duration, Instant, Ticker, Timer};
 use embassy_usb::{Config, UsbDevice};
+use keyboard_3_icd::{Position, SwitchState, SwitchStateTopic};
 use postcard_rpc::{
+    header::VarSeq,
     sender_fmt,
     server::{Dispatch, Sender, Server},
 };
@@ -90,11 +92,6 @@ async fn main(spawner: Spawner) {
     let context = app::Context {
         unique_id,
         led,
-        keys: [
-            Input::new(p.PIN_12, Pull::Up),
-            Input::new(p.PIN_13, Pull::Up),
-            Input::new(p.PIN_14, Pull::Up),
-        ],
         smartleds: ws2812,
         rgb_state: [colors::BLACK; 3],
     };
@@ -114,7 +111,22 @@ async fn main(spawner: Spawner) {
     // We need to spawn the USB task so that USB messages are handled by
     // embassy-usb
     spawner.must_spawn(usb_task(device));
-    spawner.must_spawn(logging_task(sender));
+    spawner.must_spawn(logging_task(sender.clone()));
+    spawner.must_spawn(led_watcher(
+        Position::One,
+        Input::new(p.PIN_14, Pull::Up),
+        sender.clone(),
+    ));
+    spawner.must_spawn(led_watcher(
+        Position::Two,
+        Input::new(p.PIN_13, Pull::Up),
+        sender.clone(),
+    ));
+    spawner.must_spawn(led_watcher(
+        Position::Three,
+        Input::new(p.PIN_12, Pull::Up),
+        sender,
+    ));
 
     // Begin running!
     loop {
@@ -138,6 +150,36 @@ pub async fn logging_task(sender: Sender<AppTx>) {
     loop {
         ticker.next().await;
         let _ = sender_fmt!(sender, "Uptime: {:?}", start.elapsed()).await;
+    }
+}
+
+#[embassy_executor::task(pool_size = 3)]
+pub async fn led_watcher(position: Position, mut switch: Input<'static>, sender: Sender<AppTx>) {
+
+    let mut ctr = 0u16;
+    loop {
+        let current = switch.is_low();
+        match current {
+            true => switch.wait_for_high().await,
+            false => switch.wait_for_low().await,
+        }
+        // Okay, we got an edge, see if the value is still the same
+        // after 1ms to avoid bounce. These switches seem to bounce quite
+        // a bit on press.
+        Timer::after_millis(1).await;
+        if current == switch.is_low() {
+            continue;
+        }
+        let _ = sender
+            .publish::<SwitchStateTopic>(
+                VarSeq::Seq2(ctr),
+                &SwitchState {
+                    position,
+                    pressed: !current,
+                },
+            )
+            .await;
+        ctr = ctr.wrapping_add(1);
     }
 }
 

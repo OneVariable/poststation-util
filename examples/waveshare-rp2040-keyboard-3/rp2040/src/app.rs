@@ -5,7 +5,7 @@ use crate::{
     ws2812::Ws2812,
 };
 use embassy_rp::{
-    gpio::{Input, Output},
+    gpio::Output,
     peripherals::{PIO0, USB},
     usb,
 };
@@ -31,7 +31,6 @@ pub struct Context {
     /// server. This should be unique per device.
     pub unique_id: u64,
     pub led: Output<'static>,
-    pub keys: [Input<'static>; 3],
     pub smartleds: Ws2812<'static, PIO0, 0, 3>,
     pub rgb_state: [smart_leds::RGB8; 3],
 }

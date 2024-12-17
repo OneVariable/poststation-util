@@ -27,8 +27,8 @@ pub struct Rgb8 {
     pub b: u8,
 }
 
-#[derive(Debug, Serialize, Deserialize, Schema)]
-pub enum Leds {
+#[derive(Debug, Serialize, Deserialize, Schema, Copy, Clone)]
+pub enum Position {
     One,
     Two,
     Three,
@@ -36,8 +36,14 @@ pub enum Leds {
 
 #[derive(Debug, Serialize, Deserialize, Schema)]
 pub struct SetRgbLed {
-    pub position: Leds,
+    pub position: Position,
     pub color: Rgb8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct SwitchState {
+    pub position: Position,
+    pub pressed: bool,
 }
 
 // ---
@@ -69,6 +75,7 @@ topics! {
 topics! {
     list = TOPICS_OUT_LIST;
     direction = TopicDirection::ToClient;
-    | TopicTy                   | MessageTy     | Path              | Cfg                           |
-    | -------                   | ---------     | ----              | ---                           |
+    | TopicTy                   | MessageTy     | Path                  | Cfg                           |
+    | -------                   | ---------     | ----                  | ---                           |
+    | SwitchStateTopic          | SwitchState   | "keyboard/switches"   |                               |
 }
