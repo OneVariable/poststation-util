@@ -1,7 +1,7 @@
 //! A basic postcard-rpc/poststation-compatible application
 
 use crate::{
-    handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id},
+    handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id, set_rgb_led},
     ws2812::Ws2812,
 };
 use embassy_rp::{
@@ -11,7 +11,7 @@ use embassy_rp::{
 };
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use keyboard_3_icd::{
-    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint,
+    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint, SetRgbLedEndpoint
 };
 use keyboard_3_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
@@ -33,6 +33,7 @@ pub struct Context {
     pub led: Output<'static>,
     pub keys: [Input<'static>; 3],
     pub smartleds: Ws2812<'static, PIO0, 0, 3>,
+    pub rgb_state: [smart_leds::RGB8; 3],
 }
 
 impl SpawnContext for Context {
@@ -121,6 +122,7 @@ define_dispatch! {
         | SleepEndpoint             | spawn     | sleep_handler                 |
         | SetLedEndpoint            | blocking  | set_led                       |
         | GetLedEndpoint            | blocking  | get_led                       |
+        | SetRgbLedEndpoint         | async     | set_rgb_led                   |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply

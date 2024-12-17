@@ -17,6 +17,7 @@ use postcard_rpc::{
     sender_fmt,
     server::{Dispatch, Sender, Server},
 };
+use smart_leds::colors;
 use static_cell::StaticCell;
 use ws2812::Ws2812;
 
@@ -95,6 +96,7 @@ async fn main(spawner: Spawner) {
             Input::new(p.PIN_14, Pull::Up),
         ],
         smartleds: ws2812,
+        rgb_state: [colors::BLACK; 3],
     };
 
     let (device, tx_impl, rx_impl) =

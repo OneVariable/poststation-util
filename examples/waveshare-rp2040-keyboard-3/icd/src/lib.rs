@@ -20,6 +20,26 @@ pub enum LedState {
     On,
 }
 
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct Rgb8 {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub enum Leds {
+    One,
+    Two,
+    Three,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct SetRgbLed {
+    pub position: Leds,
+    pub color: Rgb8,
+}
+
 // ---
 
 // Endpoints spoken by our device
@@ -34,6 +54,7 @@ endpoints! {
     | SleepEndpoint             | SleepMillis   | SleptMillis           | "template/sleep"              |
     | SetLedEndpoint            | LedState      | ()                    | "template/led/set"            |
     | GetLedEndpoint            | ()            | LedState              | "template/led/get"            |
+    | SetRgbLedEndpoint         | SetRgbLed     | ()                    | "keyboard/rgb/set"            |
 }
 
 // incoming topics handled by our device
