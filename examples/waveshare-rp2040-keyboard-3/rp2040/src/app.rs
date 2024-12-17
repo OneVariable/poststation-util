@@ -1,8 +1,19 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use crate::handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id};
-use embassy_rp::{gpio::{Input, Output}, peripherals::USB, usb};
+use crate::{
+    handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id},
+    ws2812::Ws2812,
+};
+use embassy_rp::{
+    gpio::{Input, Output},
+    peripherals::{PIO0, USB},
+    usb,
+};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use keyboard_3_icd::{
+    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint,
+};
+use keyboard_3_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
     dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
     PacketBuffers,
@@ -12,10 +23,6 @@ use postcard_rpc::{
     server::{Server, SpawnContext},
 };
 use static_cell::ConstStaticCell;
-use keyboard_3_icd::{
-    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint,
-};
-use keyboard_3_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
 /// Context contains the data that we will pass (as a mutable reference)
 /// to each endpoint or topic handler
@@ -25,6 +32,7 @@ pub struct Context {
     pub unique_id: u64,
     pub led: Output<'static>,
     pub keys: [Input<'static>; 3],
+    pub smartleds: Ws2812<'static, PIO0, 0, 3>,
 }
 
 impl SpawnContext for Context {

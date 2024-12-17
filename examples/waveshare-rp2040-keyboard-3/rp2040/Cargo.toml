@@ -19,7 +19,12 @@ cortex-m-rt             = "0.7.0"
 defmt                   = "0.3"
 defmt-rtt               = "0.4"
 static_cell             = "2.1"
-keyboard-3-icd            = { path = "../icd" }
+keyboard-3-icd          = { path = "../icd" }
+smart-leds              = "0.3.0"
+fixed                   = "1.23.1"
+fixed-macro             = "1.2"
+pio                     = "0.2.1"
+pio-proc                = "0.2"
 
 [profile.release]
 debug = 2

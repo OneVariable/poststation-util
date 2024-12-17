@@ -7,7 +7,8 @@ use embassy_executor::Spawner;
 use embassy_rp::{
     bind_interrupts,
     gpio::{Input, Level, Output, Pull},
-    peripherals::USB,
+    peripherals::{PIO0, USB},
+    pio::Pio,
     usb,
 };
 use embassy_time::{Duration, Instant, Ticker};
@@ -17,6 +18,7 @@ use postcard_rpc::{
     server::{Dispatch, Sender, Server},
 };
 use static_cell::StaticCell;
+use ws2812::Ws2812;
 
 bind_interrupts!(pub struct Irqs {
     USBCTRL_IRQ => usb::InterruptHandler<USB>;
@@ -26,6 +28,7 @@ use {defmt_rtt as _, panic_probe as _};
 
 pub mod app;
 pub mod handlers;
+pub mod ws2812;
 
 fn usb_config(serial: &'static str) -> Config<'static> {
     let mut config = Config::new(0x16c0, 0x27DD);
@@ -71,6 +74,12 @@ async fn main(spawner: Spawner) {
     let ser_buf = SERIAL_STRING.init(ser_buf);
     let ser_buf = core::str::from_utf8(ser_buf.as_slice()).unwrap();
 
+    // PIO/WS2812 INIT
+    let Pio {
+        mut common, sm0, ..
+    } = Pio::new(p.PIO0, ws2812::Irqs);
+    let ws2812: Ws2812<'static, PIO0, 0, 3> = Ws2812::new(&mut common, sm0, p.DMA_CH0, p.PIN_18);
+
     // USB/RPC INIT
     let driver = usb::Driver::new(p.USB, Irqs);
     let pbufs = app::PBUFS.take();
@@ -85,6 +94,7 @@ async fn main(spawner: Spawner) {
             Input::new(p.PIN_13, Pull::Up),
             Input::new(p.PIN_14, Pull::Up),
         ],
+        smartleds: ws2812,
     };
 
     let (device, tx_impl, rx_impl) =
