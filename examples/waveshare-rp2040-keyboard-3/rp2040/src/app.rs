@@ -1,7 +1,7 @@
 //! A basic postcard-rpc/poststation-compatible application
 
 use crate::handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id};
-use embassy_rp::{gpio::Output, peripherals::USB, usb};
+use embassy_rp::{gpio::{Input, Output}, peripherals::USB, usb};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
     dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
@@ -24,6 +24,7 @@ pub struct Context {
     /// server. This should be unique per device.
     pub unique_id: u64,
     pub led: Output<'static>,
+    pub keys: [Input<'static>; 3],
 }
 
 impl SpawnContext for Context {

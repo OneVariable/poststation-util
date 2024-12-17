@@ -4,10 +4,18 @@
 use app::AppTx;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_rp::{bind_interrupts, gpio::{Level, Output}, peripherals::USB, usb};
+use embassy_rp::{
+    bind_interrupts,
+    gpio::{Input, Level, Output, Pull},
+    peripherals::USB,
+    usb,
+};
 use embassy_time::{Duration, Instant, Ticker};
 use embassy_usb::{Config, UsbDevice};
-use postcard_rpc::{sender_fmt, server::{Dispatch, Sender, Server}};
+use postcard_rpc::{
+    sender_fmt,
+    server::{Dispatch, Sender, Server},
+};
 use static_cell::StaticCell;
 
 bind_interrupts!(pub struct Irqs {
@@ -18,7 +26,6 @@ use {defmt_rtt as _, panic_probe as _};
 
 pub mod app;
 pub mod handlers;
-
 
 fn usb_config(serial: &'static str) -> Config<'static> {
     let mut config = Config::new(0x16c0, 0x27DD);
@@ -70,9 +77,18 @@ async fn main(spawner: Spawner) {
     let config = usb_config(ser_buf);
     let led = Output::new(p.PIN_25, Level::Low);
 
-    let context = app::Context { unique_id, led };
+    let context = app::Context {
+        unique_id,
+        led,
+        keys: [
+            Input::new(p.PIN_12, Pull::Up),
+            Input::new(p.PIN_13, Pull::Up),
+            Input::new(p.PIN_14, Pull::Up),
+        ],
+    };
 
-    let (device, tx_impl, rx_impl) = app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());
+    let (device, tx_impl, rx_impl) =
+        app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());
     let dispatcher = app::MyApp::new(context, spawner.into());
     let vkk = dispatcher.min_key_len();
     let mut server: app::AppServer = Server::new(
