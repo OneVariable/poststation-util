@@ -35,14 +35,14 @@ enum Commands {
     Ls,
 
     /// Endpoints of a given device
-    Endpoints { serial: String },
+    Endpoints { serial: Option<String> },
 
     /// Get information about a device
     Device(Device),
     /// Proxy an endpoint request/response through the server
     Proxy {
         #[arg(short, long, value_name = "SERIAL")]
-        serial: String,
+        serial: Option<String>,
         #[arg(short, long, value_name = "PATH")]
         path: String,
         #[arg(short, long, value_name = "MSG_JSON")]
@@ -138,14 +138,18 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             serial,
             message,
             path,
-        } => device_proxy(client, serial, path, message).await,
+        } => {
+            let serial = guess_serial(serial.as_deref(), &client).await?;
+            device_proxy(client, serial, path, message).await
+        }
         Commands::Publish {
             serial,
             message,
             path,
         } => device_publish(client, serial, path, message).await,
         Commands::Endpoints { serial } => {
-            let serial_num = guess_serial(&serial, &client).await?;
+            //HACK Don't think as_deref is the right thing here
+            let serial_num = guess_serial(serial.as_deref(), &client).await?;
 
             println!("{serial_num:016X}");
             let schema = client
@@ -155,7 +159,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
                 .expect("expected device to have schemas known by the server");
 
             println!();
-            println!("# Endpoints for {serial}");
+            println!("# Endpoints for {serial_num:016X}");
             println!();
             println!("## By path");
             println!();
@@ -217,7 +221,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             Ok(())
         }
         Commands::Listen { serial, path } => {
-            let serial_num = guess_serial(&serial, &client).await?;
+            let serial_num = guess_serial(Some(&serial), &client).await?;
             let mut sub = match client.stream_topic_json(serial_num, &path).await {
                 Ok(s) => s,
                 Err(e) => bail!("{e}"),
@@ -234,11 +238,10 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
 
 async fn device_proxy(
     client: SquadClient,
-    serial: String,
+    serial: u64,
     path: String,
     message: String,
 ) -> anyhow::Result<()> {
-    let serial = u64::from_str_radix(&serial, 16)?;
     let msg = message.parse()?;
 
     let res = client.proxy_endpoint_json(serial, &path, 0, msg).await;
@@ -399,8 +402,19 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
     }
 }
 
-async fn guess_serial(serial: &str, client: &SquadClient) -> anyhow::Result<u64> {
-    let serial = serial.to_uppercase();
+async fn guess_serial(serial: Option<&str>, client: &SquadClient) -> anyhow::Result<u64> {
+    let serial = match serial {
+        Some(serial) => serial.to_uppercase(),
+        None => {
+            let serial_from_env: Result<String, std::env::VarError> =
+                std::env::var("POSTSTATION_SERIAL");
+            match serial_from_env {
+                Ok(serial) => serial.to_uppercase(),
+                Err(_) => bail!("No serial provided and no POSTSTATION_SERIAL env var found"),
+            }
+        }
+    };
+
     let mut serial_num = None;
     let mut serial_fragment = false;
 
