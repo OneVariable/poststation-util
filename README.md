@@ -29,7 +29,7 @@ working with Poststation.
 
 ## License
 
-The `poststation` server is proprietary. Crates in this repository are licensed under either of
+The `poststation` server is proprietary. All source code in this repository is licensed under either of
 
 - Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE) or
   <http://www.apache.org/licenses/LICENSE-2.0>)
