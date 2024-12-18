@@ -145,7 +145,6 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             message,
             path,
         } => {
-            //HACK Don't think as_deref is the right thing here
             let serial = guess_serial(serial.as_deref(), &client).await?;
             device_proxy(client, serial, path, message).await
         }
@@ -155,7 +154,6 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             path,
         } => device_publish(client, serial, path, message).await,
         Commands::Endpoints { serial } => {
-            //HACK Don't think as_deref is the right thing here
             let serial_num = guess_serial(serial.as_deref(), &client).await?;
 
             println!("{serial_num:016X}");
@@ -423,7 +421,6 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
                 bail!("Too many matches, be more specific!");
             } else {
                 let ep = matches[0];
-                //TODO: A command that doesn't require a response? That's what I'm trying to catch here but feel like I may be missing a couple of cases
                 if ep.req_ty.ty == OwnedDataModelType::Unit {
                     device_proxy(client, serial, ep.path.clone(), "".to_string()).await?;
                     return Ok(());
