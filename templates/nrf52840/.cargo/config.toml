@@ -1,5 +1,4 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
-# If you have an SWD debugfer, you can uncomment this line:
 runner = "probe-rs run --chip nrf52840_xxAA --protocol swd"
 
 [build]
