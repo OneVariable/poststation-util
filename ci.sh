@@ -2,9 +2,10 @@
 
 set -euxo pipefail
 
-# Template builds for RP2040/cortex-m0+
+# Template builds for RP2040 and nRF52840
 rustup target add \
-    thumbv6m-none-eabi
+    thumbv6m-none-eabi \
+    thumbv7em-none-eabihf
 
 # API ICD
 cargo check \
@@ -42,9 +43,16 @@ cargo check \
 
 # RP2040
 cargo build \
-    --manifest-path  templates/rp2040/Cargo.toml \
+    --manifest-path templates/rp2040/Cargo.toml \
     --target thumbv6m-none-eabi \
     --profile ci
+
+# nRF52840
+cargo build \
+    --manifest-path templates/nrf52840/Cargo.toml \
+    --target thumbv7em-none-eabihf \
+    --profile ci
+
 
 ## Examples
 
