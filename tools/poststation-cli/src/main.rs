@@ -2,7 +2,7 @@ use std::{collections::HashSet, net::SocketAddr, time::Instant};
 
 use anyhow::bail;
 use clap::{command, Args, Parser, Subcommand};
-use postcard_rpc::host_client::SchemaReport;
+use postcard_rpc::host_client::{EndpointReport, SchemaReport};
 use poststation_api_icd::postsock::Direction;
 use poststation_sdk::{
     connect,
@@ -12,6 +12,7 @@ use poststation_sdk::{
     },
     SquadClient,
 };
+use serde_json::json;
 use uuid::Uuid;
 
 /// The Poststation CLI
@@ -35,14 +36,14 @@ enum Commands {
     Ls,
 
     /// Endpoints of a given device
-    Endpoints { serial: String },
+    Endpoints { serial: Option<String> },
 
     /// Get information about a device
     Device(Device),
     /// Proxy an endpoint request/response through the server
     Proxy {
         #[arg(short, long, value_name = "SERIAL")]
-        serial: String,
+        serial: Option<String>,
         #[arg(short, long, value_name = "PATH")]
         path: String,
         #[arg(short, long, value_name = "MSG_JSON")]
@@ -67,7 +68,7 @@ enum Commands {
 
 #[derive(Args)]
 struct Device {
-    serial: String,
+    serial: Option<String>,
     #[command(subcommand)]
     command: DeviceCommands,
 }
@@ -89,6 +90,11 @@ enum DeviceCommands {
         count: Option<u32>,
         start: String,
         direction: String,
+    },
+    /// Takes a guess at which endpoint you want to proxy and sends a message to it if you provide one
+    SmartProxy {
+        command: String,
+        message: Option<String>,
     },
 }
 
@@ -138,14 +144,17 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             serial,
             message,
             path,
-        } => device_proxy(client, serial, path, message).await,
+        } => {
+            let serial = guess_serial(serial.as_deref(), &client).await?;
+            device_proxy(client, serial, path, message).await
+        }
         Commands::Publish {
             serial,
             message,
             path,
         } => device_publish(client, serial, path, message).await,
         Commands::Endpoints { serial } => {
-            let serial_num = guess_serial(&serial, &client).await?;
+            let serial_num = guess_serial(serial.as_deref(), &client).await?;
 
             println!("{serial_num:016X}");
             let schema = client
@@ -155,7 +164,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
                 .expect("expected device to have schemas known by the server");
 
             println!();
-            println!("# Endpoints for {serial}");
+            println!("# Endpoints for {serial_num:016X}");
             println!();
             println!("## By path");
             println!();
@@ -217,7 +226,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             Ok(())
         }
         Commands::Listen { serial, path } => {
-            let serial_num = guess_serial(&serial, &client).await?;
+            let serial_num = guess_serial(Some(&serial), &client).await?;
             let mut sub = match client.stream_topic_json(serial_num, &path).await {
                 Ok(s) => s,
                 Err(e) => bail!("{e}"),
@@ -234,12 +243,17 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
 
 async fn device_proxy(
     client: SquadClient,
-    serial: String,
+    serial: u64,
     path: String,
     message: String,
 ) -> anyhow::Result<()> {
-    let serial = u64::from_str_radix(&serial, 16)?;
-    let msg = message.parse()?;
+    let msg = match message.parse() {
+        Ok(m) => m,
+        Err(_) => {
+            //Attempting to just parse value as a string if it fails
+            json!(message)
+        }
+    };
 
     let res = client.proxy_endpoint_json(serial, &path, 0, msg).await;
 
@@ -271,7 +285,7 @@ async fn device_publish(
 }
 
 async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()> {
-    let serial = u64::from_str_radix(&device.serial, 16)?;
+    let serial = guess_serial(device.serial.as_deref(), &client).await?;
     let schema = client
         .get_device_schemas(serial)
         .await
@@ -280,7 +294,7 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
     match &device.command {
         DeviceCommands::Types => {
             println!();
-            println!("Types used by device {}", device.serial);
+            println!("Types used by device {}", serial);
             println!();
 
             let base = SchemaReport::default();
@@ -294,25 +308,18 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
         }
         DeviceCommands::Endpoints => {
             println!();
-            println!("Endpoints offered by device {}", device.serial);
+            println!("Endpoints offered by device {}", serial);
             println!();
 
             for ep in schema.endpoints {
-                if ep.resp_ty.ty == OwnedDataModelType::Unit {
-                    println!("* '{}' => async fn({})", ep.path, ep.req_ty.name);
-                } else {
-                    println!(
-                        "* '{}' => async fn({}) -> {}",
-                        ep.path, ep.req_ty.name, ep.resp_ty.name
-                    );
-                }
+                print_endpoint(&ep);
             }
             println!();
             Ok(())
         }
         DeviceCommands::TopicsOut => {
             println!();
-            println!("Topics offered by device {}", device.serial);
+            println!("Topics offered by device {}", serial);
             println!();
 
             for tp in schema.topics_out {
@@ -323,7 +330,7 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
         }
         DeviceCommands::TopicsIn => {
             println!();
-            println!("Topics handled by device {}", device.serial);
+            println!("Topics handled by device {}", serial);
             println!();
 
             for tp in schema.topics_in {
@@ -396,11 +403,52 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
             println!();
             Ok(())
         }
+        DeviceCommands::SmartProxy { command, message } => {
+            let matches = schema
+                .endpoints
+                .iter()
+                .filter(|e| e.path.contains(command))
+                .collect::<Vec<_>>();
+            if matches.is_empty() {
+                bail!("No endpoint found matching '{command}'");
+            } else if matches.len() > 1 {
+                println!("Given '{command}', found:");
+                println!();
+                for matched_endpoint in matches {
+                    print_endpoint(matched_endpoint);
+                }
+                println!();
+                bail!("Too many matches, be more specific!");
+            } else {
+                let ep = matches[0];
+                if ep.req_ty.ty == OwnedDataModelType::Unit {
+                    device_proxy(client, serial, ep.path.clone(), "".to_string()).await?;
+                    return Ok(());
+                }
+                if let Some(message) = message {
+                    device_proxy(client, serial, ep.path.clone(), message.to_owned()).await?;
+                } else {
+                    bail!("Endpoint '{}' requires a message to be sent of the type: async fn({}) -> {}", ep.path, ep.req_ty.name, ep.resp_ty.name);
+                }
+            }
+            Ok(())
+        }
     }
 }
 
-async fn guess_serial(serial: &str, client: &SquadClient) -> anyhow::Result<u64> {
-    let serial = serial.to_uppercase();
+async fn guess_serial(serial: Option<&str>, client: &SquadClient) -> anyhow::Result<u64> {
+    let serial = match serial {
+        Some(serial) => serial.to_uppercase(),
+        None => {
+            let serial_from_env: Result<String, std::env::VarError> =
+                std::env::var("POSTSTATION_SERIAL");
+            match serial_from_env {
+                Ok(serial) => serial.to_uppercase(),
+                Err(_) => bail!("No serial provided and no POSTSTATION_SERIAL env var found"),
+            }
+        }
+    };
+
     let mut serial_num = None;
     let mut serial_fragment = false;
 
@@ -448,4 +496,15 @@ async fn guess_serial(serial: &str, client: &SquadClient) -> anyhow::Result<u64>
         bail!("Couldn't figure a serial number out!");
     };
     Ok(serial_num)
+}
+
+fn print_endpoint(ep: &EndpointReport) {
+    if ep.resp_ty.ty == OwnedDataModelType::Unit {
+        println!("* '{}' => async fn({})", ep.path, ep.req_ty.name);
+    } else {
+        println!(
+            "* '{}' => async fn({}) -> {}",
+            ep.path, ep.req_ty.name, ep.resp_ty.name
+        );
+    }
 }
