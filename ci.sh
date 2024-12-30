@@ -2,6 +2,9 @@
 
 set -euxo pipefail
 
+# Ensure the book builds
+mdbook build book
+
 # Template builds for RP2040 and nRF52840
 rustup target add \
     thumbv6m-none-eabi \
