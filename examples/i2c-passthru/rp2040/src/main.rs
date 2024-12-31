@@ -4,14 +4,17 @@
 use app::AppTx;
 use defmt::info;
 use embassy_executor::Spawner;
-use embassy_rp::{bind_interrupts, gpio::{Level, Output}, peripherals::USB, usb};
+use embassy_rp::{bind_interrupts, gpio::{Level, Output}, i2c::{self, I2c}, peripherals::{USB, I2C0}, usb};
 use embassy_time::{Duration, Instant, Ticker};
 use embassy_usb::{Config, UsbDevice};
 use postcard_rpc::{sender_fmt, server::{Dispatch, Sender, Server}};
 use static_cell::StaticCell;
 
+
+
 bind_interrupts!(pub struct Irqs {
     USBCTRL_IRQ => usb::InterruptHandler<USB>;
+    I2C0_IRQ => i2c::InterruptHandler<I2C0>;
 });
 
 use {defmt_rtt as _, panic_probe as _};
@@ -70,7 +73,10 @@ async fn main(spawner: Spawner) {
     let config = usb_config(ser_buf);
     let led = Output::new(p.PIN_25, Level::Low);
 
-    let context = app::Context { unique_id, led };
+    // I2C Init - default cfg is 100khz
+    let i2c = I2c::new_async(p.I2C0, p.PIN_1, p.PIN_0, Irqs, i2c::Config::default());
+
+    let context = app::Context { unique_id, led, i2c, buf: [0u8; 256] };
 
     let (device, tx_impl, rx_impl) = app::STORAGE.init_poststation(driver, config, pbufs.tx_buf.as_mut_slice());
     let dispatcher = app::MyApp::new(context, spawner.into());

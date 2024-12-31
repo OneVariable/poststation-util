@@ -20,6 +20,33 @@ pub enum LedState {
     On,
 }
 
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct ReadCommand {
+    pub addr: u8,
+    pub len: u32,
+}
+
+#[cfg(not(feature = "use-std"))]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct ReadData<'a> {
+    pub data: &'a [u8],
+}
+
+#[cfg(feature = "use-std")]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct ReadData {
+    pub data: Vec<u8>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct I2cError;
+
+#[cfg(not(feature = "use-std"))]
+pub type ReadResult<'a> = Result<ReadData<'a>, I2cError>;
+
+#[cfg(feature = "use-std")]
+pub type ReadResult = Result<ReadData, I2cError>;
+
 // ---
 
 // Endpoints spoken by our device
@@ -27,13 +54,15 @@ pub enum LedState {
 // GetUniqueIdEndpoint is mandatory, the others are examples
 endpoints! {
     list = ENDPOINT_LIST;
-    | EndpointTy                | RequestTy     | ResponseTy            | Path                          |
-    | ----------                | ---------     | ----------            | ----                          |
-    | GetUniqueIdEndpoint       | ()            | u64                   | "poststation/unique_id/get"   |
-    | RebootToPicoBoot          | ()            | ()                    | "i2c-passthru/picoboot/reset"     |
-    | SleepEndpoint             | SleepMillis   | SleptMillis           | "i2c-passthru/sleep"              |
-    | SetLedEndpoint            | LedState      | ()                    | "i2c-passthru/led/set"            |
-    | GetLedEndpoint            | ()            | LedState              | "i2c-passthru/led/get"            |
+    | EndpointTy                | RequestTy     | ResponseTy            | Path                          | Cfg                           |
+    | ----------                | ---------     | ----------            | ----                          | ---                           |
+    | GetUniqueIdEndpoint       | ()            | u64                   | "poststation/unique_id/get"   |                               |
+    | RebootToPicoBoot          | ()            | ()                    | "i2c-passthru/picoboot/reset" |                               |
+    | SleepEndpoint             | SleepMillis   | SleptMillis           | "i2c-passthru/sleep"          |                               |
+    | SetLedEndpoint            | LedState      | ()                    | "i2c-passthru/led/set"        |                               |
+    | GetLedEndpoint            | ()            | LedState              | "i2c-passthru/led/get"        |                               |
+    | I2cReadEndpoint           | ReadCommand   | ReadResult<'a>        | "i2c-passthru/read"           | cfg(not(feature = "use-std")) |
+    | I2cReadEndpoint           | ReadCommand   | ReadResult            | "i2c-passthru/read"           | cfg(feature = "use-std")      |
 }
 
 // incoming topics handled by our device

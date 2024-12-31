@@ -2,7 +2,7 @@ use core::sync::atomic::{compiler_fence, Ordering};
 
 use embassy_time::{Instant, Timer};
 use postcard_rpc::{header::VarHeader, server::Sender};
-use i2c_passthru_icd::{LedState, SleepEndpoint, SleepMillis, SleptMillis};
+use i2c_passthru_icd::{I2cError, LedState, ReadCommand, ReadData, ReadResult, SleepEndpoint, SleepMillis, SleptMillis};
 
 use crate::app::{AppTx, Context, TaskContext};
 
@@ -32,6 +32,20 @@ pub fn get_led(context: &mut Context, _header: VarHeader, _arg: ()) -> LedState 
     match context.led.is_set_low() {
         true => LedState::Off,
         false => LedState::On,
+    }
+}
+
+pub async fn i2c_read(context: &mut Context, _header: VarHeader, arg: ReadCommand) -> ReadResult<'_> {
+    let len = arg.len as usize;
+    if len > context.buf.len() {
+        return Err(I2cError)
+    }
+    let Context { i2c, buf, .. } = context;
+    let buf = &mut buf[..len];
+    let res = i2c.read_async(arg.addr, buf).await;
+    match res {
+        Ok(()) => Ok(ReadData { data: buf }),
+        Err(_e) => Err(I2cError),
     }
 }
 

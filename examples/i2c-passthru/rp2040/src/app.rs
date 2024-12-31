@@ -1,7 +1,7 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use crate::handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id};
-use embassy_rp::{gpio::Output, peripherals::USB, usb};
+use crate::handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id, i2c_read};
+use embassy_rp::{gpio::Output, i2c::{Async, I2c}, peripherals::{I2C0, USB}, usb};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
     dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
@@ -13,7 +13,7 @@ use postcard_rpc::{
 };
 use static_cell::ConstStaticCell;
 use i2c_passthru_icd::{
-    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint,
+    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint, I2cReadEndpoint
 };
 use i2c_passthru_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
@@ -24,6 +24,8 @@ pub struct Context {
     /// server. This should be unique per device.
     pub unique_id: u64,
     pub led: Output<'static>,
+    pub i2c: I2c<'static, I2C0, Async>,
+    pub buf: [u8; 256],
 }
 
 impl SpawnContext for Context {
@@ -40,10 +42,10 @@ pub struct TaskContext {
     pub unique_id: u64,
 }
 
-/// Type Aliases
-///
-/// These aliases are used to keep the types from getting too out of hand.
-///
+// Type Aliases
+//
+// These aliases are used to keep the types from getting too out of hand.
+//
 /// If you are using the RP2040 - you shouldn't need to modify any of these!
 
 /// This alias describes the type of driver we will need. In this case, we
@@ -112,6 +114,7 @@ define_dispatch! {
         | SleepEndpoint             | spawn     | sleep_handler                 |
         | SetLedEndpoint            | blocking  | set_led                       |
         | GetLedEndpoint            | blocking  | get_led                       |
+        | I2cReadEndpoint           | async     | i2c_read                      |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply
