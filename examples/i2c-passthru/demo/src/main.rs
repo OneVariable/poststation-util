@@ -1,7 +1,10 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use embedded_hal_async::i2c::{Error, ErrorType, I2c, Operation};
-use i2c_passthru_icd::{self, I2cError, I2cReadEndpoint, I2cWriteEndpoint, ReadCommand, WriteCommand};
+use i2c_passthru_icd::{
+    self, I2cError, I2cReadEndpoint, I2cWriteEndpoint, I2cWriteReadEndpoint, ReadCommand,
+    WriteCommand, WriteReadCommand,
+};
 use poststation_sdk::{connect, SquadClient};
 
 struct I2cDev {
@@ -38,19 +41,25 @@ impl I2c for I2cDev {
         match operations {
             [] => Ok(()),
             [Operation::Read(buf)] => self.read(address, buf).await,
+            [Operation::Write(buf)] => self.write(address, buf).await,
+            [Operation::Write(tx), Operation::Read(rx)] => self.write_read(address, tx, rx).await,
             _ => Err(HostI2CError::NotYetSupported),
         }
     }
 
     async fn read(&mut self, address: u8, read: &mut [u8]) -> Result<(), Self::Error> {
-        let Ok(res) = self.client.proxy_endpoint::<I2cReadEndpoint>(
-            self.serial,
-            self.ctr(),
-            &ReadCommand {
-                addr: address,
-                len: read.len() as u32,
-            }
-        ).await else {
+        let Ok(res) = self
+            .client
+            .proxy_endpoint::<I2cReadEndpoint>(
+                self.serial,
+                self.ctr(),
+                &ReadCommand {
+                    addr: address,
+                    len: read.len() as u32,
+                },
+            )
+            .await
+        else {
             return Err(HostI2CError::ConnectionError);
         };
 
@@ -63,14 +72,17 @@ impl I2c for I2cDev {
     }
 
     async fn write(&mut self, address: u8, write: &[u8]) -> Result<(), Self::Error> {
-        let res = self.client.proxy_endpoint::<I2cWriteEndpoint>(
-            self.serial,
-            self.ctr(),
-            &WriteCommand {
-                addr: address,
-                data: write.to_vec(),
-            }
-        ).await;
+        let res = self
+            .client
+            .proxy_endpoint::<I2cWriteEndpoint>(
+                self.serial,
+                self.ctr(),
+                &WriteCommand {
+                    addr: address,
+                    data: write.to_vec(),
+                },
+            )
+            .await;
 
         match res {
             Ok(Ok(())) => Ok(()),
@@ -81,11 +93,31 @@ impl I2c for I2cDev {
 
     async fn write_read(
         &mut self,
-        _address: u8,
-        _write: &[u8],
-        _read: &mut [u8],
+        address: u8,
+        write: &[u8],
+        read: &mut [u8],
     ) -> Result<(), Self::Error> {
-        panic!()
+        let res = self
+            .client
+            .proxy_endpoint::<I2cWriteReadEndpoint>(
+                self.serial,
+                self.ctr(),
+                &WriteReadCommand {
+                    addr: address,
+                    tx_data: write.to_vec(),
+                    rx_len: read.len() as u32,
+                },
+            )
+            .await;
+
+        match res {
+            Ok(Ok(resp)) => {
+                read.copy_from_slice(&resp.data);
+                Ok(())
+            }
+            Ok(Err(I2cError)) => Err(HostI2CError::DeviceError),
+            Err(_) => Err(HostI2CError::ConnectionError),
+        }
     }
 }
 

@@ -64,6 +64,23 @@ pub struct WriteCommand {
 
 pub type WriteResult = Result<(), I2cError>;
 
+// WRITE THEN READ
+
+#[cfg(not(feature = "use-std"))]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct WriteReadCommand<'a> {
+    pub addr: u8,
+    pub tx_data: &'a [u8],
+    pub rx_len: u32,
+}
+
+#[cfg(feature = "use-std")]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct WriteReadCommand {
+    pub addr: u8,
+    pub tx_data: Vec<u8>,
+    pub rx_len: u32,
+}
 
 #[derive(Debug, Serialize, Deserialize, Schema)]
 pub struct I2cError;
@@ -75,17 +92,19 @@ pub struct I2cError;
 // GetUniqueIdEndpoint is mandatory, the others are examples
 endpoints! {
     list = ENDPOINT_LIST;
-    | EndpointTy                | RequestTy         | ResponseTy            | Path                          | Cfg                           |
-    | ----------                | ---------         | ----------            | ----                          | ---                           |
-    | GetUniqueIdEndpoint       | ()                | u64                   | "poststation/unique_id/get"   |                               |
-    | RebootToPicoBoot          | ()                | ()                    | "i2c-passthru/picoboot/reset" |                               |
-    | SleepEndpoint             | SleepMillis       | SleptMillis           | "i2c-passthru/sleep"          |                               |
-    | SetLedEndpoint            | LedState          | ()                    | "i2c-passthru/led/set"        |                               |
-    | GetLedEndpoint            | ()                | LedState              | "i2c-passthru/led/get"        |                               |
-    | I2cReadEndpoint           | ReadCommand       | ReadResult<'a>        | "i2c-passthru/read"           | cfg(not(feature = "use-std")) |
-    | I2cReadEndpoint           | ReadCommand       | ReadResult            | "i2c-passthru/read"           | cfg(feature = "use-std")      |
-    | I2cWriteEndpoint          | WriteCommand<'a>  | WriteResult           | "i2c-passthru/write"          | cfg(not(feature = "use-std")) |
-    | I2cWriteEndpoint          | WriteCommand      | WriteResult           | "i2c-passthru/write"          | cfg(feature = "use-std")      |
+    | EndpointTy                | RequestTy             | ResponseTy            | Path                          | Cfg                           |
+    | ----------                | ---------             | ----------            | ----                          | ---                           |
+    | GetUniqueIdEndpoint       | ()                    | u64                   | "poststation/unique_id/get"   |                               |
+    | RebootToPicoBoot          | ()                    | ()                    | "i2c-passthru/picoboot/reset" |                               |
+    | SleepEndpoint             | SleepMillis           | SleptMillis           | "i2c-passthru/sleep"          |                               |
+    | SetLedEndpoint            | LedState              | ()                    | "i2c-passthru/led/set"        |                               |
+    | GetLedEndpoint            | ()                    | LedState              | "i2c-passthru/led/get"        |                               |
+    | I2cReadEndpoint           | ReadCommand           | ReadResult<'a>        | "i2c-passthru/read"           | cfg(not(feature = "use-std")) |
+    | I2cReadEndpoint           | ReadCommand           | ReadResult            | "i2c-passthru/read"           | cfg(feature = "use-std")      |
+    | I2cWriteEndpoint          | WriteCommand<'a>      | WriteResult           | "i2c-passthru/write"          | cfg(not(feature = "use-std")) |
+    | I2cWriteEndpoint          | WriteCommand          | WriteResult           | "i2c-passthru/write"          | cfg(feature = "use-std")      |
+    | I2cWriteReadEndpoint      | WriteReadCommand<'a>  | ReadResult<'b>        | "i2c-passthru/write-read"     | cfg(not(feature = "use-std")) |
+    | I2cWriteReadEndpoint      | WriteReadCommand      | ReadResult            | "i2c-passthru/write-read"     | cfg(feature = "use-std")      |
 }
 
 // incoming topics handled by our device

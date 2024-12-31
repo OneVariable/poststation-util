@@ -1,8 +1,20 @@
 //! A basic postcard-rpc/poststation-compatible application
 
-use crate::handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id, i2c_read};
-use embassy_rp::{gpio::Output, i2c::{Async, I2c}, peripherals::{I2C0, USB}, usb};
+use crate::handlers::{
+    get_led, i2c_read, i2c_write, i2c_write_read, picoboot_reset, set_led, sleep_handler, unique_id,
+};
+use embassy_rp::{
+    gpio::Output,
+    i2c::{Async, I2c},
+    peripherals::{I2C0, USB},
+    usb,
+};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
+use i2c_passthru_icd::{
+    GetLedEndpoint, GetUniqueIdEndpoint, I2cReadEndpoint, I2cWriteEndpoint, I2cWriteReadEndpoint,
+    RebootToPicoBoot, SetLedEndpoint, SleepEndpoint, ENDPOINT_LIST, TOPICS_IN_LIST,
+    TOPICS_OUT_LIST,
+};
 use postcard_rpc::server::impls::embassy_usb_v0_3::{
     dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
     PacketBuffers,
@@ -12,10 +24,6 @@ use postcard_rpc::{
     server::{Server, SpawnContext},
 };
 use static_cell::ConstStaticCell;
-use i2c_passthru_icd::{
-    GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint, I2cReadEndpoint
-};
-use i2c_passthru_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
 /// Context contains the data that we will pass (as a mutable reference)
 /// to each endpoint or topic handler
@@ -46,7 +54,7 @@ pub struct TaskContext {
 //
 // These aliases are used to keep the types from getting too out of hand.
 //
-/// If you are using the RP2040 - you shouldn't need to modify any of these!
+// If you are using the RP2040 - you shouldn't need to modify any of these!
 
 /// This alias describes the type of driver we will need. In this case, we
 /// are using the embassy-usb driver with the RP2040 USB peripheral
@@ -115,6 +123,8 @@ define_dispatch! {
         | SetLedEndpoint            | blocking  | set_led                       |
         | GetLedEndpoint            | blocking  | get_led                       |
         | I2cReadEndpoint           | async     | i2c_read                      |
+        | I2cWriteEndpoint          | async     | i2c_write                     |
+        | I2cWriteReadEndpoint      | async     | i2c_write_read                |
     };
 
     // Topics IN are messages we receive from the client, but that we do not reply
