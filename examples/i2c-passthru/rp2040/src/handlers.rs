@@ -2,7 +2,7 @@ use core::sync::atomic::{compiler_fence, Ordering};
 
 use embassy_time::{Instant, Timer};
 use postcard_rpc::{header::VarHeader, server::Sender};
-use i2c_passthru_icd::{I2cError, LedState, ReadCommand, ReadData, ReadResult, SleepEndpoint, SleepMillis, SleptMillis};
+use i2c_passthru_icd::{I2cError, LedState, ReadCommand, ReadData, ReadResult, SleepEndpoint, SleepMillis, SleptMillis, WriteCommand, WriteResult};
 
 use crate::app::{AppTx, Context, TaskContext};
 
@@ -47,6 +47,12 @@ pub async fn i2c_read(context: &mut Context, _header: VarHeader, arg: ReadComman
         Ok(()) => Ok(ReadData { data: buf }),
         Err(_e) => Err(I2cError),
     }
+}
+
+pub async fn i2c_write(context: &mut Context, _header: VarHeader, arg: WriteCommand<'_>) -> WriteResult {
+    context.i2c.write_async(arg.addr, arg.data.iter().copied())
+        .await
+        .map_err(|_| I2cError)
 }
 
 /// This is a SPAWN handler

@@ -20,6 +20,8 @@ pub enum LedState {
     On,
 }
 
+// READ
+
 #[derive(Debug, Serialize, Deserialize, Schema)]
 pub struct ReadCommand {
     pub addr: u8,
@@ -38,14 +40,33 @@ pub struct ReadData {
     pub data: Vec<u8>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Schema)]
-pub struct I2cError;
-
 #[cfg(not(feature = "use-std"))]
 pub type ReadResult<'a> = Result<ReadData<'a>, I2cError>;
 
 #[cfg(feature = "use-std")]
 pub type ReadResult = Result<ReadData, I2cError>;
+
+// WRITE
+
+#[cfg(not(feature = "use-std"))]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct WriteCommand<'a> {
+    pub addr: u8,
+    pub data: &'a [u8],
+}
+
+#[cfg(feature = "use-std")]
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct WriteCommand {
+    pub addr: u8,
+    pub data: Vec<u8>,
+}
+
+pub type WriteResult = Result<(), I2cError>;
+
+
+#[derive(Debug, Serialize, Deserialize, Schema)]
+pub struct I2cError;
 
 // ---
 
@@ -54,15 +75,17 @@ pub type ReadResult = Result<ReadData, I2cError>;
 // GetUniqueIdEndpoint is mandatory, the others are examples
 endpoints! {
     list = ENDPOINT_LIST;
-    | EndpointTy                | RequestTy     | ResponseTy            | Path                          | Cfg                           |
-    | ----------                | ---------     | ----------            | ----                          | ---                           |
-    | GetUniqueIdEndpoint       | ()            | u64                   | "poststation/unique_id/get"   |                               |
-    | RebootToPicoBoot          | ()            | ()                    | "i2c-passthru/picoboot/reset" |                               |
-    | SleepEndpoint             | SleepMillis   | SleptMillis           | "i2c-passthru/sleep"          |                               |
-    | SetLedEndpoint            | LedState      | ()                    | "i2c-passthru/led/set"        |                               |
-    | GetLedEndpoint            | ()            | LedState              | "i2c-passthru/led/get"        |                               |
-    | I2cReadEndpoint           | ReadCommand   | ReadResult<'a>        | "i2c-passthru/read"           | cfg(not(feature = "use-std")) |
-    | I2cReadEndpoint           | ReadCommand   | ReadResult            | "i2c-passthru/read"           | cfg(feature = "use-std")      |
+    | EndpointTy                | RequestTy         | ResponseTy            | Path                          | Cfg                           |
+    | ----------                | ---------         | ----------            | ----                          | ---                           |
+    | GetUniqueIdEndpoint       | ()                | u64                   | "poststation/unique_id/get"   |                               |
+    | RebootToPicoBoot          | ()                | ()                    | "i2c-passthru/picoboot/reset" |                               |
+    | SleepEndpoint             | SleepMillis       | SleptMillis           | "i2c-passthru/sleep"          |                               |
+    | SetLedEndpoint            | LedState          | ()                    | "i2c-passthru/led/set"        |                               |
+    | GetLedEndpoint            | ()                | LedState              | "i2c-passthru/led/get"        |                               |
+    | I2cReadEndpoint           | ReadCommand       | ReadResult<'a>        | "i2c-passthru/read"           | cfg(not(feature = "use-std")) |
+    | I2cReadEndpoint           | ReadCommand       | ReadResult            | "i2c-passthru/read"           | cfg(feature = "use-std")      |
+    | I2cWriteEndpoint          | WriteCommand<'a>  | WriteResult           | "i2c-passthru/write"          | cfg(not(feature = "use-std")) |
+    | I2cWriteEndpoint          | WriteCommand      | WriteResult           | "i2c-passthru/write"          | cfg(feature = "use-std")      |
 }
 
 // incoming topics handled by our device

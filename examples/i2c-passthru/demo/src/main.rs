@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use embedded_hal_async::i2c::{Error, ErrorType, I2c, Operation};
-use i2c_passthru_icd::{self, I2cReadEndpoint, ReadCommand};
+use i2c_passthru_icd::{self, I2cError, I2cReadEndpoint, I2cWriteEndpoint, ReadCommand, WriteCommand};
 use poststation_sdk::{connect, SquadClient};
 
 struct I2cDev {
@@ -62,8 +62,21 @@ impl I2c for I2cDev {
         Ok(())
     }
 
-    async fn write(&mut self, _address: u8, _write: &[u8]) -> Result<(), Self::Error> {
-        panic!()
+    async fn write(&mut self, address: u8, write: &[u8]) -> Result<(), Self::Error> {
+        let res = self.client.proxy_endpoint::<I2cWriteEndpoint>(
+            self.serial,
+            self.ctr(),
+            &WriteCommand {
+                addr: address,
+                data: write.to_vec(),
+            }
+        ).await;
+
+        match res {
+            Ok(Ok(())) => Ok(()),
+            Ok(Err(I2cError)) => Err(HostI2CError::DeviceError),
+            Err(_) => Err(HostI2CError::ConnectionError),
+        }
     }
 
     async fn write_read(
