@@ -30,10 +30,10 @@ endpoints! {
     | EndpointTy                | RequestTy     | ResponseTy            | Path                          |
     | ----------                | ---------     | ----------            | ----                          |
     | GetUniqueIdEndpoint       | ()            | u64                   | "poststation/unique_id/get"   |
-    | RebootToPicoBoot          | ()            | ()                    | "template/picoboot/reset"     |
-    | SleepEndpoint             | SleepMillis   | SleptMillis           | "template/sleep"              |
-    | SetLedEndpoint            | LedState      | ()                    | "template/led/set"            |
-    | GetLedEndpoint            | ()            | LedState              | "template/led/get"            |
+    | RebootToPicoBoot          | ()            | ()                    | "i2c-passthru/picoboot/reset"     |
+    | SleepEndpoint             | SleepMillis   | SleptMillis           | "i2c-passthru/sleep"              |
+    | SetLedEndpoint            | LedState      | ()                    | "i2c-passthru/led/set"            |
+    | GetLedEndpoint            | ()            | LedState              | "i2c-passthru/led/get"            |
 }
 
 // incoming topics handled by our device

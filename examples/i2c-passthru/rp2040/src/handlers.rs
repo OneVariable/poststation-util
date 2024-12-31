@@ -2,7 +2,7 @@ use core::sync::atomic::{compiler_fence, Ordering};
 
 use embassy_time::{Instant, Timer};
 use postcard_rpc::{header::VarHeader, server::Sender};
-use template_icd::{LedState, SleepEndpoint, SleepMillis, SleptMillis};
+use i2c_passthru_icd::{LedState, SleepEndpoint, SleepMillis, SleptMillis};
 
 use crate::app::{AppTx, Context, TaskContext};
 

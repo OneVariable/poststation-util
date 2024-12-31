@@ -12,10 +12,10 @@ use postcard_rpc::{
     server::{Server, SpawnContext},
 };
 use static_cell::ConstStaticCell;
-use template_icd::{
+use i2c_passthru_icd::{
     GetLedEndpoint, GetUniqueIdEndpoint, RebootToPicoBoot, SetLedEndpoint, SleepEndpoint,
 };
-use template_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
+use i2c_passthru_icd::{ENDPOINT_LIST, TOPICS_IN_LIST, TOPICS_OUT_LIST};
 
 /// Context contains the data that we will pass (as a mutable reference)
 /// to each endpoint or topic handler

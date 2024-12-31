@@ -1,5 +1,5 @@
 [package]
-name = "template-rp2040"
+name = "i2c-passthru-rp2040"
 version = "0.1.0"
 edition = "2021"
 
@@ -19,7 +19,7 @@ cortex-m-rt             = "0.7.0"
 defmt                   = "0.3"
 defmt-rtt               = "0.4"
 static_cell             = "2.1"
-template-icd            = { path = "../icd" }
+i2c-passthru-icd            = { path = "../icd" }
 
 [profile.release]
 debug = 2

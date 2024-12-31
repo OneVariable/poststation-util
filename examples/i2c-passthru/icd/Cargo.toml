@@ -1,5 +1,5 @@
 [package]
-name = "template-icd"
+name = "i2c-passthru-icd"
 version = "0.1.0"
 edition = "2021"
 
