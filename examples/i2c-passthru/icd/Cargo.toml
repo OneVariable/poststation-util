@@ -1,0 +1,31 @@
+[package]
+name = "template-icd"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
+default-features = false
+
+[dependencies.postcard-rpc]
+version = "0.11"
+
+[dependencies.postcard-schema]
+version = "0.2"
+features = ["derive"]
+
+[features]
+use-std = []
+
+[profile.ci]
+inherits = "dev"
+debug = false
+strip = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = 'unwind'
+incremental = false
+codegen-units = 256
+rpath = false
