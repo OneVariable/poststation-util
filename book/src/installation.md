@@ -59,17 +59,33 @@ Depending on the devices you are using, you may need to add udev rules for the V
 connected devices, in order to allow access to connected USB devices. It is **NOT** recommended
 to run `poststation` as a root user or with `sudo`.
 
-You may need to repeat this process multiple times for each device!
+You may need to repeat this process for each new device!
 
-TODO: Add example for the `examples/` repo, where the VID is `0x16c0` and the PID is `0x27DD`.
-The [probe-rs docs on udev](https://probe.rs/docs/getting-started/probe-setup/#linux%3A-udev-rules)
-are a good place to refer to.
+The following udev rules file is usable for the examples provided in the `poststation-util`
+repository, which uses the USB VID `16c0`, and the USB PID `27dd`:
 
-Rough steps are:
+```text
+# These rules are based on the udev rules from the OpenOCD + probe.rs projects
+#
+# This file is available under the GNU General Public License v2.0
+#
+# SETUP INSTRUCTIONS:
+#
+# 1. Copy/write/update this file to `/etc/udev/rules.d/60-poststation.rules`
+# 2. Run `sudo udevadm control --reload` to ensure the new rules are used
+# 3. Run `sudo udevadm trigger` to ensure the new rules are applied to already added devices.
 
-* Write a rules file and place it in `/etc/udev/rules.d`
-* Run `udevadm control --reload` to ensure the new rules are used.
-* Run `udevadm trigger` to ensure the new rules are applied to already added devices.
+ACTION!="add|change", GOTO="poststation_rules_end"
+SUBSYSTEM!="usb|tty|hidraw", GOTO="poststation_rules_end"
+
+# Default demos from poststation - 16c0:27dd
+ATTRS{idVendor}=="16c0", ATTRS{idProduct}=="27dd", MODE="660", GROUP="plugdev", TAG+="uaccess"
+
+# You can add addtional rules here if your devices use different VID:PID pairs
+# ATTRS{idVendor}=="xxxx", ATTRS{idProduct}=="xxxx", MODE="660", GROUP="plugdev", TAG+="uaccess"
+
+LABEL="poststation_rules_end"
+```
 
 ## Windows
 
