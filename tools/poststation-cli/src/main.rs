@@ -5,12 +5,10 @@ use clap::{command, Args, Parser, Subcommand};
 use postcard_rpc::host_client::{EndpointReport, SchemaReport};
 use poststation_api_icd::postsock::Direction;
 use poststation_sdk::{
-    connect,
-    schema::schema::{
+    connect, connect_insecure, schema::schema::{
         fmt::{discover_tys, is_prim},
         owned::{OwnedDataModelType, OwnedNamedType},
-    },
-    SquadClient,
+    }, PoststationClient
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -22,6 +20,10 @@ struct Cli {
     /// A path to the server. Defaults to `127.0.0.1:51837`.
     #[arg(short, long, value_name = "SERVER_ADDR")]
     server: Option<SocketAddr>,
+
+    /// When set, a plaintext connection will be made with the server
+    #[arg(long)]
+    insecure: bool,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -118,7 +120,11 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
     let Some(command) = cli.command else {
         return Ok(());
     };
-    let client = connect(server).await;
+    let client = if cli.insecure {
+        connect_insecure(server.port()).await
+    } else {
+        connect(server).await
+    };
 
     match command {
         Commands::Ls => {
@@ -242,7 +248,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
 }
 
 async fn device_proxy(
-    client: SquadClient,
+    client: PoststationClient,
     serial: u64,
     path: String,
     message: String,
@@ -266,7 +272,7 @@ async fn device_proxy(
 }
 
 async fn device_publish(
-    client: SquadClient,
+    client: PoststationClient,
     serial: String,
     path: String,
     message: String,
@@ -284,7 +290,7 @@ async fn device_publish(
     Ok(())
 }
 
-async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()> {
+async fn device_cmds(client: PoststationClient, device: &Device) -> anyhow::Result<()> {
     let serial = guess_serial(device.serial.as_deref(), &client).await?;
     let schema = client
         .get_device_schemas(serial)
@@ -436,7 +442,7 @@ async fn device_cmds(client: SquadClient, device: &Device) -> anyhow::Result<()>
     }
 }
 
-async fn guess_serial(serial: Option<&str>, client: &SquadClient) -> anyhow::Result<u64> {
+async fn guess_serial(serial: Option<&str>, client: &PoststationClient) -> anyhow::Result<u64> {
     let serial = match serial {
         Some(serial) => serial.to_uppercase(),
         None => {

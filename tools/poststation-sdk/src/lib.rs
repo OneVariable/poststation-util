@@ -1,6 +1,9 @@
 use core::fmt::Debug;
-use std::{error::Error, fmt::Display, future::Future, marker::PhantomData, net::SocketAddr};
+use std::{
+    error::Error, fmt::Display, future::Future, marker::PhantomData, net::{IpAddr, Ipv4Addr, SocketAddr}, path::{Path, PathBuf}, sync::Arc
+};
 
+use directories::ProjectDirs;
 use postcard_dyn::Value;
 use postcard_rpc::{
     host_client::{
@@ -17,26 +20,28 @@ use poststation_api_icd::postsock::{
     StartStreamEndpoint, SubscribeTopic, TopicMsg, TopicRequest, TopicStreamMsg,
     TopicStreamRequest, TopicStreamResult, Uuidv7,
 };
+use rustls::{
+    pki_types::{pem::PemObject, CertificateDer, ServerName},
+    RootCertStore,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{
-        tcp::{OwnedReadHalf, OwnedWriteHalf},
-        TcpStream,
-    },
+    io::{split, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadHalf, WriteHalf},
+    net::TcpStream,
 };
 
 pub use postcard_schema as schema;
 pub use poststation_api_icd as icd;
+use tokio_rustls::TlsConnector;
 
 // ---
 
 #[derive(Clone)]
-pub struct SquadClient {
+pub struct PoststationClient {
     client: HostClient<WireError>,
 }
 
-impl SquadClient {
+impl PoststationClient {
     pub fn raw_client(&self) -> &HostClient<WireError> {
         &self.client
     }
@@ -540,8 +545,10 @@ where
     }
 }
 
-pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> SquadClient {
-    let socket = TcpStream::connect(addr)
+/// Connect to a server configured in "insecure" mode
+pub async fn connect_insecure(port: u16) -> PoststationClient {
+    // Insecure can only be located on localhost
+    let socket = TcpStream::connect(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
         .await
         .expect("expected to be able to connect to server");
     let addr = socket
@@ -550,7 +557,7 @@ pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> SquadClient {
     socket
         .set_nodelay(true)
         .expect("expected to be able to set nodelay on socket");
-    let (rx, tx) = socket.into_split();
+    let (rx, tx) = split(socket);
 
     let client = HostClient::<WireError>::new_with_wire(
         TcpCommsTx { tx },
@@ -571,7 +578,57 @@ pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> SquadClient {
         .expect("expected to be able to ping poststation server socket, ping failed");
     assert_eq!(res, 42, "sanity check failed: ping mismatch");
 
-    SquadClient { client }
+    PoststationClient { client }
+}
+
+/// Connect to a server configured with Self Signed TLS certificates (default)
+pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> PoststationClient {
+    let dirs = ProjectDirs::from("com.onevariable", "onevariable", "poststation").unwrap();
+    let data_dir = dirs.data_dir();
+    let mut pem_path = PathBuf::from(data_dir);
+    pem_path.push("ca-cert.pem");
+    connect_with_ca_pem(addr, &pem_path).await
+}
+
+/// Connect to a server with the given TLS CA certificate
+pub async fn connect_with_ca_pem<T: tokio::net::ToSocketAddrs>(addr: T, ca_path: &Path) -> PoststationClient {
+    let mut root_cert_store = RootCertStore::empty();
+    root_cert_store
+        .add(CertificateDer::from_pem_file(ca_path).unwrap())
+        .unwrap();
+    let config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_cert_store)
+        .with_no_client_auth();
+    let connector = TlsConnector::from(Arc::new(config));
+    let stream = TcpStream::connect(addr).await.unwrap();
+    stream.set_nodelay(false).unwrap();
+    let addr = stream.peer_addr().unwrap();
+    let stream = connector
+        .connect(ServerName::IpAddress(addr.ip().into()), stream)
+        .await
+        .unwrap();
+    let (rx, tx) = split(stream);
+
+    let client = HostClient::<WireError>::new_with_wire(
+        TcpCommsTx { tx },
+        TcpCommsRx {
+            rx,
+            addr,
+            buf: vec![],
+        },
+        TcpSpawn,
+        postcard_rpc::header::VarSeqKind::Seq4,
+        ERROR_PATH,
+        64,
+    );
+
+    let res = client
+        .send_resp::<PingEndpoint>(&42)
+        .await
+        .expect("expected to be able to ping poststation server socket, ping failed");
+    assert_eq!(res, 42, "sanity check failed: ping mismatch");
+
+    PoststationClient { client }
 }
 
 pub enum TcpCommsRxError {
@@ -593,13 +650,13 @@ impl Display for TcpCommsRxError {
 
 impl Error for TcpCommsRxError {}
 
-struct TcpCommsRx {
+struct TcpCommsRx<T: AsyncRead + Send + 'static> {
     addr: SocketAddr,
     buf: Vec<u8>,
-    rx: OwnedReadHalf,
+    rx: ReadHalf<T>,
 }
 
-impl TcpCommsRx {
+impl<T: AsyncRead + Send + 'static> TcpCommsRx<T> {
     async fn receive_inner(&mut self) -> Result<Vec<u8>, TcpCommsRxError> {
         let mut rx_buf = [0u8; 1024];
         'frame: loop {
@@ -639,7 +696,7 @@ impl TcpCommsRx {
     }
 }
 
-impl WireRx for TcpCommsRx {
+impl<T: AsyncRead + Send + 'static> WireRx for TcpCommsRx<T> {
     type Error = TcpCommsRxError;
 
     fn receive(&mut self) -> impl Future<Output = Result<Vec<u8>, Self::Error>> + Send {
@@ -667,11 +724,11 @@ impl Display for TcpCommsTxError {
 
 impl Error for TcpCommsTxError {}
 
-struct TcpCommsTx {
-    tx: OwnedWriteHalf,
+struct TcpCommsTx<T: AsyncWrite + Send + 'static> {
+    tx: WriteHalf<T>,
 }
 
-impl TcpCommsTx {
+impl<T: AsyncWrite + Send + 'static> TcpCommsTx<T> {
     async fn send_inner(&mut self, data: Vec<u8>) -> Result<(), TcpCommsTxError> {
         let mut data = cobs::encode_vec(&data);
         data.push(0);
@@ -682,7 +739,7 @@ impl TcpCommsTx {
     }
 }
 
-impl WireTx for TcpCommsTx {
+impl<T: AsyncWrite + Send + 'static> WireTx for TcpCommsTx<T> {
     type Error = TcpCommsTxError;
 
     fn send(&mut self, data: Vec<u8>) -> impl Future<Output = Result<(), Self::Error>> + Send {
