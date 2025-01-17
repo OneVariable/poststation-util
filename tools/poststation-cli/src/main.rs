@@ -1,14 +1,17 @@
-use std::{collections::HashSet, net::SocketAddr, time::Instant};
+use std::{collections::HashSet, net::SocketAddr, path::PathBuf, time::Instant};
 
 use anyhow::bail;
 use clap::{command, Args, Parser, Subcommand};
+use directories::ProjectDirs;
 use postcard_rpc::host_client::{EndpointReport, SchemaReport};
 use poststation_api_icd::postsock::Direction;
 use poststation_sdk::{
-    connect, connect_insecure, schema::schema::{
+    connect, connect_insecure,
+    schema::schema::{
         fmt::{discover_tys, is_prim},
         owned::{OwnedDataModelType, OwnedNamedType},
-    }, PoststationClient
+    },
+    PoststationClient,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -39,6 +42,10 @@ enum Commands {
 
     /// Endpoints of a given device
     Endpoints { serial: Option<String> },
+
+    /// Show the folder used for configuration, database storage, and
+    /// the CA certificate for external usage
+    Folder,
 
     /// Get information about a device
     Device(Device),
@@ -124,7 +131,8 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
         connect_insecure(server.port()).await
     } else {
         connect(server).await
-    };
+    }
+    .unwrap();
 
     match command {
         Commands::Ls => {
@@ -244,6 +252,25 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             println!("Closed");
             Ok(())
         }
+        Commands::Folder => {
+            let Some(dirs) = ProjectDirs::from("com.onevariable", "onevariable", "poststation") else {
+                bail!("Failed to get working directory!");
+            };
+            let data_dir = dirs.data_dir();
+            let mut cert_path = PathBuf::from(data_dir);
+            cert_path.push("ca-cert.pem");
+            let mut cfg_path = PathBuf::from(data_dir);
+            cfg_path.push("poststation-config.toml");
+
+            println!();
+            println!("Poststation Folder Information:");
+            println!("===============================");
+            println!("Folder:         {data_dir:?}");
+            println!("CA Certificate: {cert_path:?}");
+            println!("Configuration:  {cfg_path:?}");
+            println!();
+            Ok(())
+        },
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "poststation-api-icd"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 repository = "https://github.com/OneVariable/poststation-util"
 authors = ["James Munns <james@onevariable.com>"]

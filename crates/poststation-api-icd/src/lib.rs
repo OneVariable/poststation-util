@@ -19,5 +19,3 @@ pub mod postsock;
 
 #[cfg(feature = "rest-api")]
 pub mod rest;
-
-

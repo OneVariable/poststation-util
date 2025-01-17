@@ -1,22 +1,18 @@
 [package]
 name = "poststation-cli"
-version = "0.3.1"
+# This version of the CLI tested with poststation v0.14.0
+version = "0.4.0"
 edition = "2021"
 authors = ["James Munns <james@onevariable.com>"]
 description = "A CLI tool for poststation"
 repository = "https://github.com/OneVariable/poststation-util"
 license = "MIT OR Apache-2.0"
 
-[package.metadata.wix]
-upgrade-guid = "671C6ED7-3503-443D-BD54-9279A13E9594"
-path-guid = "1BACD011-57BA-4178-A899-0B74DB3823F4"
-license = false
-eula = false
-
 [dependencies]
-anyhow = "1.0.89"
-clap = { version = "4.5.19", features = ["derive"] }
-serde_json = "1.0.128"
+anyhow      = "1.0.89"
+clap        = { version = "4.5.19", features = ["derive"] }
+directories = "5.0.1"
+serde_json  = "1.0.128"
 
 [dependencies.postcard-rpc]
 version = "0.11.0"
@@ -24,12 +20,11 @@ features = ["use-std"]
 
 [dependencies.poststation-api-icd]
 path = "../../crates/poststation-api-icd"
-version = "0.3.0"
+version = "0.4.0"
 
 [dependencies.poststation-sdk]
 path = "../poststation-sdk"
-version = "0.3.0"
-
+version = "0.4.0"
 
 [dependencies.tokio]
 version = "1.37.0"

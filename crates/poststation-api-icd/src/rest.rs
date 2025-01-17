@@ -225,8 +225,8 @@
 //! }
 //! ```
 
-use serde::{Serialize, Deserialize};
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Hash, JsonSchema)]
@@ -306,7 +306,7 @@ pub struct ProxyRequest {
 }
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct ProxyResponseOk{
+pub struct ProxyResponseOk {
     pub resp_key: foreign::Key,
     pub seq_no: u32,
     pub body: serde_json::Value,
@@ -338,7 +338,6 @@ pub mod foreign {
     use schemars::JsonSchema;
     use serde::{Deserialize, Serialize};
 
-
     impl From<postcard_rpc::Key> for Key {
         fn from(value: postcard_rpc::Key) -> Self {
             Self(format!("{:016X}", u64::from_le_bytes(value.to_bytes())))
@@ -351,13 +350,13 @@ pub mod foreign {
             let Ok(val) = u64::from_str_radix(&value.0, 16) else {
                 return Err(value.0);
             };
-            unsafe {
-                Ok(postcard_rpc::Key::from_bytes(val.to_le_bytes()))
-            }
+            unsafe { Ok(postcard_rpc::Key::from_bytes(val.to_le_bytes())) }
         }
     }
 
-    #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize, Hash, JsonSchema)]
+    #[derive(
+        Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize, Hash, JsonSchema,
+    )]
     pub struct Key(String);
 
     /// The given frame was too long
@@ -398,7 +397,6 @@ pub mod foreign {
         /// collisions, and was rejected to avoid potential misunderstanding
         KeyTooSmall,
     }
-
 
     /// A report describing the schema spoken by the connected device
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
@@ -477,10 +475,10 @@ pub mod foreign {
     pub mod schema {
         //! Owned + JSON friendly Schema version
 
+        use postcard_schema::schema::owned as real;
         use schemars::JsonSchema;
         use serde::{Deserialize, Serialize};
         use std::{boxed::Box, ops::Deref, string::String, vec::Vec};
-        use postcard_schema::schema::owned as real;
 
         // ---
 
@@ -624,9 +622,13 @@ pub mod foreign {
                     real::OwnedDataModelType::Option(o) => Self::Option(Box::new(o.deref().into())),
                     real::OwnedDataModelType::Unit => Self::Unit,
                     real::OwnedDataModelType::UnitStruct => Self::UnitStruct,
-                    real::OwnedDataModelType::NewtypeStruct(nts) => Self::NewtypeStruct(Box::new(nts.deref().into())),
+                    real::OwnedDataModelType::NewtypeStruct(nts) => {
+                        Self::NewtypeStruct(Box::new(nts.deref().into()))
+                    }
                     real::OwnedDataModelType::Seq(s) => Self::Seq(Box::new(s.deref().into())),
-                    real::OwnedDataModelType::Tuple(t) => Self::Tuple(t.iter().map(|i| i.into()).collect()),
+                    real::OwnedDataModelType::Tuple(t) => {
+                        Self::Tuple(t.iter().map(|i| i.into()).collect())
+                    }
                     real::OwnedDataModelType::TupleStruct(ts) => {
                         Self::TupleStruct(ts.iter().map(|i| i.into()).collect())
                     }
@@ -634,8 +636,12 @@ pub mod foreign {
                         key: Box::new(key.deref().into()),
                         val: Box::new(val.deref().into()),
                     },
-                    real::OwnedDataModelType::Struct(s) => Self::Struct(s.iter().map(|i| i.into()).collect()),
-                    real::OwnedDataModelType::Enum(e) => Self::Enum(e.iter().map(|i| i.into()).collect()),
+                    real::OwnedDataModelType::Struct(s) => {
+                        Self::Struct(s.iter().map(|i| i.into()).collect())
+                    }
+                    real::OwnedDataModelType::Enum(e) => {
+                        Self::Enum(e.iter().map(|i| i.into()).collect())
+                    }
                     real::OwnedDataModelType::Schema => Self::Schema,
                 }
             }
@@ -660,7 +666,9 @@ pub mod foreign {
             fn from(value: &real::OwnedDataModelVariant) -> Self {
                 match value {
                     real::OwnedDataModelVariant::UnitVariant => Self::UnitVariant,
-                    real::OwnedDataModelVariant::NewtypeVariant(d) => Self::NewtypeVariant(Box::new(d.deref().into())),
+                    real::OwnedDataModelVariant::NewtypeVariant(d) => {
+                        Self::NewtypeVariant(Box::new(d.deref().into()))
+                    }
                     real::OwnedDataModelVariant::TupleVariant(d) => {
                         Self::TupleVariant(d.iter().map(|i| i.into()).collect())
                     }
@@ -710,6 +718,5 @@ pub mod foreign {
                 }
             }
         }
-
     }
 }

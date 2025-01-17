@@ -1,13 +1,19 @@
 use core::fmt::Debug;
 use std::{
-    error::Error, fmt::Display, future::Future, marker::PhantomData, net::{IpAddr, Ipv4Addr, SocketAddr}, path::{Path, PathBuf}, sync::Arc
+    error::Error,
+    fmt::Display,
+    future::Future,
+    marker::PhantomData,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use directories::ProjectDirs;
 use postcard_dyn::Value;
 use postcard_rpc::{
     host_client::{
-        HostClient, MultiSubRxError, MultiSubscription, SchemaReport, TopicReport, WireRx,
+        HostClient, HostErr, MultiSubRxError, MultiSubscription, SchemaReport, TopicReport, WireRx,
         WireSpawn, WireTx,
     },
     standard_icd::{PingEndpoint, WireError, ERROR_PATH},
@@ -36,6 +42,42 @@ use tokio_rustls::TlsConnector;
 
 // ---
 
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ClientError {
+    /// The connection to the server has been closed
+    ConnectionClosed,
+    /// An issue with the protocol between client and server occurred
+    Protocol,
+    /// An issue with the encoding of messages occurred
+    Encoding,
+    /// An issue was reported by the server
+    Server(String),
+    /// An issue occurred between the remote device and the poststation server
+    Remote(String),
+    /// An issue occurred with dynamic serialization/deserialization
+    Dynamic(String),
+}
+
+impl From<HostErr<WireError>> for ClientError {
+    fn from(value: HostErr<WireError>) -> Self {
+        match value {
+            HostErr::Wire(_e) => ClientError::Protocol,
+            HostErr::BadResponse => ClientError::Protocol,
+            HostErr::Postcard(_error) => ClientError::Encoding,
+            HostErr::Closed => ClientError::ConnectionClosed,
+        }
+    }
+}
+
+impl Display for ClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(self, f)
+    }
+}
+
+impl Error for ClientError {}
+
 #[derive(Clone)]
 pub struct PoststationClient {
     client: HostClient<WireError>,
@@ -46,30 +88,27 @@ impl PoststationClient {
         &self.client
     }
 
-    pub async fn get_devices(&self) -> Result<Vec<DeviceData>, ()> {
-        self.client
-            .send_resp::<GetDevicesEndpoint>(&())
-            .await
-            .map_err(drop)
+    pub async fn get_devices(&self) -> Result<Vec<DeviceData>, ClientError> {
+        Ok(self.client.send_resp::<GetDevicesEndpoint>(&()).await?)
     }
 
-    pub async fn get_device_schemas(&self, serial: u64) -> Result<Option<SchemaReport>, ()> {
-        let res = self
+    pub async fn get_device_schemas(
+        &self,
+        serial: u64,
+    ) -> Result<Option<SchemaReport>, ClientError> {
+        let res = self.client.send_resp::<GetSchemasEndpoint>(&serial).await?;
+        Ok(res)
+    }
+
+    pub async fn get_device_logs(
+        &self,
+        serial: u64,
+        count: u32,
+    ) -> Result<Option<Vec<Log>>, ClientError> {
+        Ok(self
             .client
-            .send_resp::<GetSchemasEndpoint>(&serial)
-            .await
-            .map_err(drop)?;
-        let Some(res) = res else {
-            return Ok(None);
-        };
-        Ok(Some(res))
-    }
-
-    pub async fn get_device_logs(&self, serial: u64, count: u32) -> Result<Option<Vec<Log>>, ()> {
-        self.client
             .send_resp::<GetLogsEndpoint>(&LogRequest { serial, count })
-            .await
-            .map_err(drop)
+            .await?)
     }
 
     pub async fn get_device_logs_range(
@@ -78,16 +117,16 @@ impl PoststationClient {
         count: u32,
         dir: Direction,
         anchor: Anchor,
-    ) -> Result<Option<Vec<Log>>, ()> {
-        self.client
+    ) -> Result<Option<Vec<Log>>, ClientError> {
+        Ok(self
+            .client
             .send_resp::<GetLogsRangeEndpoint>(&LogRangeRequest {
                 serial,
                 count,
                 anchor,
                 direction: dir,
             })
-            .await
-            .map_err(drop)
+            .await?)
     }
 
     pub async fn get_device_topics_out_by_path_raw(
@@ -95,7 +134,7 @@ impl PoststationClient {
         serial: u64,
         path: &str,
         count: u32,
-    ) -> Result<Option<Vec<TopicMsg>>, ()> {
+    ) -> Result<Option<Vec<TopicMsg>>, ClientError> {
         let schemas = self.get_device_schemas(serial).await?;
         let Some(schemas) = schemas else {
             return Ok(None);
@@ -109,15 +148,15 @@ impl PoststationClient {
             .map(|t| t.key);
         let Some(key) = res else { return Ok(None) };
 
-        self.client
+        Ok(self
+            .client
             .send_resp::<GetTopicsEndpoint>(&TopicRequest {
                 serial,
                 count,
                 path: path.to_string(),
                 key,
             })
-            .await
-            .map_err(drop)
+            .await?)
     }
 
     pub async fn get_device_topics_out_by_path_json(
@@ -125,7 +164,7 @@ impl PoststationClient {
         serial: u64,
         path: &str,
         count: u32,
-    ) -> Result<Option<Vec<(Uuidv7, Value)>>, ()> {
+    ) -> Result<Option<Vec<(Uuidv7, Value)>>, ClientError> {
         let schemas = self.get_device_schemas(serial).await?;
         let Some(schemas) = schemas else {
             return Ok(None);
@@ -143,8 +182,7 @@ impl PoststationClient {
                 path: path.to_string(),
                 key: schema.key,
             })
-            .await
-            .map_err(drop)?;
+            .await?;
         let Some(raws) = raws else {
             return Ok(None);
         };
@@ -152,8 +190,9 @@ impl PoststationClient {
         let res = raws
             .into_iter()
             .map(|tm| {
-                let msg = postcard_dyn::from_slice_dyn(&schema.ty, &tm.msg).map_err(drop)?;
-                Ok((tm.uuidv7, msg))
+                let msg = postcard_dyn::from_slice_dyn(&schema.ty, &tm.msg)
+                    .map_err(|_| ClientError::Encoding)?;
+                Result::<_, ClientError>::Ok((tm.uuidv7, msg))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -165,14 +204,14 @@ impl PoststationClient {
         serial: u64,
         seq_no: u32,
         body: &E::Request,
-    ) -> Result<E::Response, String>
+    ) -> Result<E::Response, ClientError>
     where
         E: Endpoint,
         E::Request: Serialize,
         E::Response: DeserializeOwned,
     {
-        let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
-            return Err("endpoint not found".into());
+        let Some(schemas) = self.get_device_schemas(serial).await? else {
+            return Err(ClientError::Server("endpoint not found".into()));
         };
 
         // find key
@@ -182,10 +221,10 @@ impl PoststationClient {
             e.path.as_str() == E::PATH && e.req_key == E::REQ_KEY && e.resp_key == E::RESP_KEY
         });
         let Some(schema) = res else {
-            return Err("endpoint not found".into());
+            return Err(ClientError::Server("endpoint not found".into()));
         };
         let Ok(body) = postcard::to_stdvec(body) else {
-            return Err("Serialization Failed".into());
+            return Err(ClientError::Encoding);
         };
 
         let req = ProxyRequest {
@@ -199,24 +238,25 @@ impl PoststationClient {
 
         let resp = self.client.send_resp::<ProxyEndpoint>(&req).await;
 
-        let resp = match resp {
-            Ok(r) => r,
-            Err(e) => {
-                return Err(format!("Server error: {e:?}"));
-            }
-        };
+        // client to poststation comms
+        let resp = resp?;
 
+        // poststation to remote comms
         let resp = match resp {
             ProxyResponse::Ok { body, .. } => body,
-            ProxyResponse::WireErr { body, .. } => return Err(format!("WireErr: {body:?}")),
-            ProxyResponse::OtherErr(e) => return Err(format!("Other Server Err: '{e}'")),
+            ProxyResponse::WireErr { body, .. } => {
+                return Err(ClientError::Remote(format!("WireErr: {body:?}")))
+            }
+            ProxyResponse::OtherErr(e) => {
+                return Err(ClientError::Remote(format!("Other Server Err: '{e}'")))
+            }
         };
 
         let resp = postcard::from_bytes::<E::Response>(&resp);
 
         match resp {
             Ok(v) => Ok(v),
-            Err(e) => Err(format!("Decode error: '{e:?}'")),
+            Err(_e) => Err(ClientError::Encoding),
         }
     }
 
@@ -226,21 +266,21 @@ impl PoststationClient {
         path: &str,
         seq_no: u32,
         body: Value,
-    ) -> Result<Value, String> {
+    ) -> Result<Value, ClientError> {
         let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
-            return Err("endpoint not found".into());
+            return Err(ClientError::Server("endpoint not found".into()));
         };
 
         // find key
         let res = schemas.endpoints.iter().find(|e| e.path.as_str() == path);
         let Some(schema) = res else {
-            return Err("endpoint not found".into());
+            return Err(ClientError::Server("endpoint not found".into()));
         };
 
         let Ok(body) = postcard_dyn::to_stdvec_dyn(&schema.req_ty, &body) else {
-            return Err(
+            return Err(ClientError::Dynamic(
                 "provided JSON does not match the expected schema for this endpoint".into(),
-            );
+            ));
         };
         let req = ProxyRequest {
             serial,
@@ -253,24 +293,25 @@ impl PoststationClient {
 
         let resp = self.client.send_resp::<ProxyEndpoint>(&req).await;
 
-        let resp = match resp {
-            Ok(r) => r,
-            Err(e) => {
-                return Err(format!("Server error: {e:?}"));
-            }
-        };
+        // client to poststation comms
+        let resp = resp?;
 
+        // poststation to remote comms
         let resp = match resp {
             ProxyResponse::Ok { body, .. } => body,
-            ProxyResponse::WireErr { body, .. } => return Err(format!("WireErr: {body:?}")),
-            ProxyResponse::OtherErr(e) => return Err(format!("Other Server Err: '{e}'")),
+            ProxyResponse::WireErr { body, .. } => {
+                return Err(ClientError::Remote(format!("WireErr: {body:?}")))
+            }
+            ProxyResponse::OtherErr(e) => {
+                return Err(ClientError::Remote(format!("Other Server Err: '{e}'")))
+            }
         };
 
         let resp = postcard_dyn::from_slice_dyn(&schema.resp_ty, &resp);
 
         match resp {
             Ok(v) => Ok(v),
-            Err(e) => Err(format!("Decode error: '{e:?}'")),
+            Err(e) => Err(ClientError::Dynamic(format!("Decode error: '{e:?}'"))),
         }
     }
 
@@ -280,19 +321,21 @@ impl PoststationClient {
         path: &str,
         seq_no: u32,
         body: Value,
-    ) -> Result<(), String> {
+    ) -> Result<(), ClientError> {
         let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         // find key
         let res = schemas.topics_in.iter().find(|e| e.path.as_str() == path);
         let Some(schema) = res else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         let Ok(body) = postcard_dyn::to_stdvec_dyn(&schema.ty, &body) else {
-            return Err("provided JSON does not match the schema for this topic".into());
+            return Err(ClientError::Dynamic(
+                "provided JSON does not match the schema for this topic".into(),
+            ));
         };
         let req = PublishRequest {
             serial,
@@ -304,16 +347,11 @@ impl PoststationClient {
 
         let resp = self.client.send_resp::<PublishEndpoint>(&req).await;
 
-        let resp = match resp {
-            Ok(r) => r,
-            Err(e) => {
-                return Err(format!("Server error: {e:?}"));
-            }
-        };
+        let resp = resp?;
 
         match resp {
             PublishResponse::Sent => Ok(()),
-            PublishResponse::OtherErr(e) => Err(format!("Other Server Err: '{e}'")),
+            PublishResponse::OtherErr(e) => Err(ClientError::Server(e)),
         }
     }
 
@@ -322,13 +360,13 @@ impl PoststationClient {
         serial: u64,
         seq_no: u32,
         body: &T::Message,
-    ) -> Result<(), String>
+    ) -> Result<(), ClientError>
     where
         T: Topic,
         T::Message: Serialize,
     {
         let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         // find key
@@ -339,11 +377,11 @@ impl PoststationClient {
             .iter()
             .find(|t| t.path.as_str() == T::PATH && t.key == T::TOPIC_KEY);
         let Some(schema) = res else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         let Ok(body) = postcard::to_stdvec(body) else {
-            return Err("serialization failed".into());
+            return Err(ClientError::Encoding);
         };
         let req = PublishRequest {
             serial,
@@ -355,16 +393,11 @@ impl PoststationClient {
 
         let resp = self.client.send_resp::<PublishEndpoint>(&req).await;
 
-        let resp = match resp {
-            Ok(r) => r,
-            Err(e) => {
-                return Err(format!("Server error: {e:?}"));
-            }
-        };
+        let resp = resp?;
 
         match resp {
             PublishResponse::Sent => Ok(()),
-            PublishResponse::OtherErr(e) => Err(format!("Other Server Err: '{e}'")),
+            PublishResponse::OtherErr(e) => Err(ClientError::Server(e)),
         }
     }
 
@@ -373,9 +406,9 @@ impl PoststationClient {
         &self,
         serial: u64,
         path: &str,
-    ) -> Result<JsonStreamListener, String> {
+    ) -> Result<JsonStreamListener, ClientError> {
         let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         // find key
@@ -385,14 +418,14 @@ impl PoststationClient {
             .find(|e| e.path.as_str() == path)
             .cloned();
         let Some(schema) = res else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         let sub = self
             .client
             .subscribe_multi::<SubscribeTopic>(64)
             .await
-            .map_err(|e| format!("Error: {e:?}"))?;
+            .map_err(|_| ClientError::ConnectionClosed)?;
 
         let res = self
             .client
@@ -403,12 +436,17 @@ impl PoststationClient {
             })
             .await;
 
-        let stream_id = match res {
-            Ok(TopicStreamResult::Started(id)) => id,
-            Ok(TopicStreamResult::DeviceDisconnected) => return Err("Device Disconnected".into()),
-            Ok(TopicStreamResult::NoDeviceKnown) => return Err("No Device Known".into()),
-            Ok(TopicStreamResult::NoSuchTopic) => return Err("No Such Topic".into()),
-            Err(e) => return Err(format!("Error: {e:?}")),
+        let stream_id = match res? {
+            TopicStreamResult::Started(id) => id,
+            TopicStreamResult::DeviceDisconnected => {
+                return Err(ClientError::Server("Device Disconnected".into()))
+            }
+            TopicStreamResult::NoDeviceKnown => {
+                return Err(ClientError::Server("No Device Known".into()))
+            }
+            TopicStreamResult::NoSuchTopic => {
+                return Err(ClientError::Server("No Such Topic".into()))
+            }
         };
 
         Ok(JsonStreamListener {
@@ -419,13 +457,13 @@ impl PoststationClient {
     }
 
     /// Listen to a given topic path, receiving a subscription that yields live messages
-    pub async fn stream_topic<T>(&self, serial: u64) -> Result<StreamListener<T>, String>
+    pub async fn stream_topic<T>(&self, serial: u64) -> Result<StreamListener<T>, ClientError>
     where
         T: Topic,
         T::Message: DeserializeOwned,
     {
         let Ok(Some(schemas)) = self.get_device_schemas(serial).await else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         // find key
@@ -435,14 +473,14 @@ impl PoststationClient {
             .find(|e| e.path.as_str() == T::PATH && e.key == T::TOPIC_KEY)
             .cloned();
         let Some(schema) = res else {
-            return Err("topic not found".into());
+            return Err(ClientError::Server("topic not found".into()));
         };
 
         let sub = self
             .client
             .subscribe_multi::<SubscribeTopic>(64)
             .await
-            .map_err(|e| format!("Error: {e:?}"))?;
+            .map_err(|_| ClientError::ConnectionClosed)?;
 
         let res = self
             .client
@@ -453,12 +491,17 @@ impl PoststationClient {
             })
             .await;
 
-        let stream_id = match res {
-            Ok(TopicStreamResult::Started(id)) => id,
-            Ok(TopicStreamResult::DeviceDisconnected) => return Err("Device Disconnected".into()),
-            Ok(TopicStreamResult::NoDeviceKnown) => return Err("No Device Known".into()),
-            Ok(TopicStreamResult::NoSuchTopic) => return Err("No Such Topic".into()),
-            Err(e) => return Err(format!("Error: {e:?}")),
+        let stream_id = match res? {
+            TopicStreamResult::Started(id) => id,
+            TopicStreamResult::DeviceDisconnected => {
+                return Err(ClientError::Server("Device Disconnected".into()))
+            }
+            TopicStreamResult::NoDeviceKnown => {
+                return Err(ClientError::Server("No Device Known".into()))
+            }
+            TopicStreamResult::NoSuchTopic => {
+                return Err(ClientError::Server("No Such Topic".into()))
+            }
         };
 
         Ok(StreamListener {
@@ -546,17 +589,18 @@ where
 }
 
 /// Connect to a server configured in "insecure" mode
-pub async fn connect_insecure(port: u16) -> PoststationClient {
+///
+/// "Insecure" is not the default setting. Your poststation server must
+/// be configured to "insecure" to allow this.
+pub async fn connect_insecure(port: u16) -> Result<PoststationClient, ConnectError> {
     // Insecure can only be located on localhost
     let socket = TcpStream::connect(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port))
         .await
-        .expect("expected to be able to connect to server");
-    let addr = socket
-        .peer_addr()
-        .expect("expected to have peer address for server");
+        .map_err(|_| ConnectError::Connection)?;
+    let addr = socket.peer_addr().map_err(|_| ConnectError::Connection)?;
     socket
         .set_nodelay(true)
-        .expect("expected to be able to set nodelay on socket");
+        .map_err(|_| ConnectError::Connection)?;
     let (rx, tx) = split(socket);
 
     let client = HostClient::<WireError>::new_with_wire(
@@ -575,15 +619,48 @@ pub async fn connect_insecure(port: u16) -> PoststationClient {
     let res = client
         .send_resp::<PingEndpoint>(&42)
         .await
-        .expect("expected to be able to ping poststation server socket, ping failed");
-    assert_eq!(res, 42, "sanity check failed: ping mismatch");
+        .map_err(|_| ConnectError::Protocol)?;
 
-    PoststationClient { client }
+    if res != 42 {
+        return Err(ConnectError::Protocol);
+    }
+
+    Ok(PoststationClient { client })
 }
 
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ConnectError {
+    // Failed to load CA Certificate for server
+    CaCertificate,
+    // Failed to connect to poststation server
+    Connection,
+    // Protocol check failed
+    Protocol,
+}
+
+impl Display for ConnectError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as Debug>::fmt(self, f)
+    }
+}
+
+impl Error for ConnectError {}
+
 /// Connect to a server configured with Self Signed TLS certificates (default)
-pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> PoststationClient {
-    let dirs = ProjectDirs::from("com.onevariable", "onevariable", "poststation").unwrap();
+///
+/// This function can only be used on the same device as the poststation server.
+///
+/// If you are connecting to a remote device, you will need to obtain the CA cert
+/// from the poststation server, and use [`connect_with_ca_pem`] to connect
+pub async fn connect<T: tokio::net::ToSocketAddrs>(
+    addr: T,
+) -> Result<PoststationClient, ConnectError> {
+    // If we are on the same machine as the Poststation server, we can load the CA cert from the
+    // working folder of poststation
+    let Some(dirs) = ProjectDirs::from("com.onevariable", "onevariable", "poststation") else {
+        return Err(ConnectError::CaCertificate);
+    };
     let data_dir = dirs.data_dir();
     let mut pem_path = PathBuf::from(data_dir);
     pem_path.push("ca-cert.pem");
@@ -591,22 +668,29 @@ pub async fn connect<T: tokio::net::ToSocketAddrs>(addr: T) -> PoststationClient
 }
 
 /// Connect to a server with the given TLS CA certificate
-pub async fn connect_with_ca_pem<T: tokio::net::ToSocketAddrs>(addr: T, ca_path: &Path) -> PoststationClient {
+pub async fn connect_with_ca_pem<T: tokio::net::ToSocketAddrs>(
+    addr: T,
+    ca_path: &Path,
+) -> Result<PoststationClient, ConnectError> {
     let mut root_cert_store = RootCertStore::empty();
     root_cert_store
-        .add(CertificateDer::from_pem_file(ca_path).unwrap())
-        .unwrap();
+        .add(CertificateDer::from_pem_file(ca_path).map_err(|_| ConnectError::CaCertificate)?)
+        .map_err(|_| ConnectError::CaCertificate)?;
     let config = rustls::ClientConfig::builder()
         .with_root_certificates(root_cert_store)
         .with_no_client_auth();
     let connector = TlsConnector::from(Arc::new(config));
-    let stream = TcpStream::connect(addr).await.unwrap();
-    stream.set_nodelay(false).unwrap();
-    let addr = stream.peer_addr().unwrap();
+    let stream = TcpStream::connect(addr)
+        .await
+        .map_err(|_| ConnectError::Connection)?;
+    stream
+        .set_nodelay(false)
+        .map_err(|_| ConnectError::Connection)?;
+    let addr = stream.peer_addr().map_err(|_| ConnectError::Connection)?;
     let stream = connector
         .connect(ServerName::IpAddress(addr.ip().into()), stream)
         .await
-        .unwrap();
+        .map_err(|_| ConnectError::Connection)?;
     let (rx, tx) = split(stream);
 
     let client = HostClient::<WireError>::new_with_wire(
@@ -625,10 +709,13 @@ pub async fn connect_with_ca_pem<T: tokio::net::ToSocketAddrs>(addr: T, ca_path:
     let res = client
         .send_resp::<PingEndpoint>(&42)
         .await
-        .expect("expected to be able to ping poststation server socket, ping failed");
-    assert_eq!(res, 42, "sanity check failed: ping mismatch");
+        .map_err(|_| ConnectError::Protocol)?;
 
-    PoststationClient { client }
+    if res != 42 {
+        return Err(ConnectError::Protocol);
+    }
+
+    Ok(PoststationClient { client })
 }
 
 pub enum TcpCommsRxError {
