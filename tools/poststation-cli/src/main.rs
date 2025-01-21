@@ -1,10 +1,10 @@
 use std::{net::SocketAddr, path::PathBuf, time::Instant};
 
 use anyhow::bail;
-use clap::{command, Args, Parser, Subcommand};
+use clap::{command, Parser, Subcommand};
 use device::{device_cmds, Device};
 use directories::ProjectDirs;
-use postcard_rpc::host_client::EndpointReport;
+use postcard_rpc::host_client::{EndpointReport, TopicReport};
 use poststation_sdk::{
     connect, connect_insecure, schema::schema::owned::OwnedDataModelType, PoststationClient,
 };
@@ -24,7 +24,7 @@ struct Cli {
     insecure: bool,
 
     #[command(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 
     #[arg(long)]
     timings: bool,
@@ -35,38 +35,12 @@ enum Commands {
     /// List devices
     Ls,
 
-    // /// Endpoints of a given device
-    // Endpoints { serial: Option<String> },
-    /// Show the folder used for configuration, database storage, and
+    /// Show paths for configuration, database storage, and
     /// the CA certificate for external usage
     Folder,
 
     /// Interact with a specific device
     Device(Device),
-    // /// Proxy an endpoint request/response through the server
-    // Proxy {
-    //     #[arg(short, long, value_name = "SERIAL")]
-    //     serial: Option<String>,
-    //     #[arg(short, long, value_name = "PATH")]
-    //     path: String,
-    //     #[arg(short, long, value_name = "MSG_JSON")]
-    //     message: String,
-    // },
-    // Publish {
-    //     #[arg(short, long, value_name = "SERIAL")]
-    //     serial: String,
-    //     #[arg(short, long, value_name = "PATH")]
-    //     path: String,
-    //     #[arg(short, long, value_name = "MSG_JSON")]
-    //     message: String,
-    // },
-    // /// Listen to a given "topic-out" path from a device
-    // Listen {
-    //     #[arg(short, long, value_name = "SERIAL")]
-    //     serial: String,
-    //     #[arg(short, long, value_name = "PATH")]
-    //     path: String,
-    // },
 }
 
 #[tokio::main]
@@ -86,9 +60,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
         .server
         .unwrap_or_else(|| "127.0.0.1:51837".parse().unwrap());
 
-    let Some(command) = cli.command else {
-        return Ok(());
-    };
+    let command = cli.command;
     let client = if cli.insecure {
         connect_insecure(server.port()).await
     } else {
@@ -116,104 +88,6 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             Ok(())
         }
         Commands::Device(d) => device_cmds(client, &d).await,
-        // Commands::Proxy {
-        //     serial,
-        //     message,
-        //     path,
-        // } => {
-        //     let serial = guess_serial(serial.as_deref(), &client).await?;
-        //     device_proxy(client, serial, path, message).await
-        // }
-        // Commands::Publish {
-        //     serial,
-        //     message,
-        //     path,
-        // } => device_publish(client, serial, path, message).await,
-        // Commands::Endpoints { serial } => {
-        //     let serial_num = guess_serial(serial.as_deref(), &client).await?;
-
-        //     println!("{serial_num:016X}");
-        //     let schema = client
-        //         .get_device_schemas(serial_num)
-        //         .await
-        //         .expect("expected to be able to get schemas for device")
-        //         .expect("expected device to have schemas known by the server");
-
-        //     println!();
-        //     println!("# Endpoints for {serial_num:016X}");
-        //     println!();
-        //     println!("## By path");
-        //     println!();
-
-        //     let longest_ep = schema.endpoints.iter().map(|e| e.path.len()).max().unwrap();
-        //     let longest_req = schema
-        //         .endpoints
-        //         .iter()
-        //         .map(|e| e.req_ty.name.len())
-        //         .max()
-        //         .unwrap_or(0)
-        //         .max("Request Type".len());
-        //     let longest_resp = schema
-        //         .endpoints
-        //         .iter()
-        //         .map(|e| e.resp_ty.name.len())
-        //         .max()
-        //         .unwrap_or(0)
-        //         .max("Response Type".len());
-
-        //     println!(
-        //         "| {:longest_ep$} | {:longest_req$} | {:longest_resp$} |",
-        //         "path", "Request Type", "Response Type"
-        //     );
-        //     println!(
-        //         "| {:-<longest_ep$} | {:-<longest_req$} | {:-<longest_resp$} |",
-        //         "", "", ""
-        //     );
-
-        //     let mut used_tys = HashSet::new();
-
-        //     for ep in schema.endpoints {
-        //         println!(
-        //             "| {:longest_ep$} | {:longest_req$} | {:longest_resp$} |",
-        //             ep.path, ep.req_ty.name, ep.resp_ty.name
-        //         );
-        //         discover_tys(&ep.req_ty, &mut used_tys);
-        //         discover_tys(&ep.resp_ty, &mut used_tys);
-        //     }
-        //     println!();
-        //     println!("## Type Definitions");
-        //     println!();
-        //     println!("Non-primitive types used by endpoints");
-
-        //     let mut tys: Vec<OwnedNamedType> = used_tys
-        //         .into_iter()
-        //         .filter(|ont| !is_prim(&ont.ty))
-        //         .collect();
-        //     tys.sort_by_key(|o| o.name.clone());
-
-        //     for ty in tys {
-        //         println!();
-        //         println!("### `{}`", ty.name);
-        //         println!();
-        //         println!("{}", ty.to_pseudocode());
-        //     }
-        //     println!();
-
-        //     Ok(())
-        // }
-        // Commands::Listen { serial, path } => {
-        //     let serial_num = guess_serial(Some(&serial), &client).await?;
-        //     let mut sub = match client.stream_topic_json(serial_num, &path).await {
-        //         Ok(s) => s,
-        //         Err(e) => bail!("{e}"),
-        //     };
-
-        //     while let Some(m) = sub.recv().await {
-        //         println!("{serial_num:016X}:'{path}':{m}");
-        //     }
-        //     println!("Closed");
-        //     Ok(())
-        // }
         Commands::Folder => {
             let Some(dirs) = ProjectDirs::from("com.onevariable", "onevariable", "poststation")
             else {
@@ -297,6 +171,10 @@ async fn guess_serial(serial: Option<&str>, client: &PoststationClient) -> anyho
         bail!("Couldn't figure a serial number out!");
     };
     Ok(serial_num)
+}
+
+fn print_topic(tp: &TopicReport) {
+    println!("* '{}' => Channel<{}>", tp.path, tp.ty.name);
 }
 
 fn print_endpoint(ep: &EndpointReport) {

@@ -1,14 +1,16 @@
-use crate::{guess_serial, print_endpoint};
+use crate::{guess_serial, print_endpoint, print_topic};
 use anyhow::bail;
 use clap::{Args, Subcommand};
-use postcard_rpc::host_client::SchemaReport;
+use postcard_rpc::host_client::{EndpointReport, SchemaReport, TopicReport};
 use poststation_api_icd::postsock::Direction;
 use poststation_sdk::{schema::schema::owned::OwnedDataModelType, PoststationClient};
+use rand::{thread_rng, Rng};
 use serde_json::json;
 use uuid::Uuid;
 
 #[derive(Args)]
 pub struct Device {
+    /// Device Serial Number or Name. Can be set via POSTSTATION_SERIAL env var
     pub serial: Option<String>,
     #[command(subcommand)]
     pub command: DeviceCommands,
@@ -32,10 +34,20 @@ pub enum DeviceCommands {
         start: String,
         direction: String,
     },
-    /// Takes a guess at which endpoint you want to proxy and sends a message to it if you provide one
-    SmartProxy {
-        command: String,
+    /// Proxy message to device endpoint
+    Proxy {
+        path: String,
         message: Option<String>,
+    },
+    /// Publish a topic message to a device
+    Publish {
+        path: String,
+        message: Option<String>,
+    },
+    /// Listen to a given "topic-out" path from a device
+    Listen {
+        #[arg(value_name = "PATH")]
+        path: String,
     },
 }
 
@@ -57,10 +69,34 @@ pub async fn device_cmds(client: PoststationClient, device: &Device) -> anyhow::
             start,
             direction,
         } => device_logs_range(client, serial, count, start, direction).await,
-        DeviceCommands::SmartProxy { command, message } => {
-            device_smart_proxy(client, serial, &schema, command, &message.as_deref()).await
+        DeviceCommands::Proxy { path, message } => {
+            device_smart_proxy(client, serial, &schema, path, message.as_deref()).await
         }
+        DeviceCommands::Publish { path, message } => {
+            device_smart_publish(client, &schema, serial, path, message.as_deref()).await
+        }
+        DeviceCommands::Listen { path } => device_smart_listen(client, &schema, serial, path).await,
     }
+}
+
+async fn device_smart_listen(
+    client: PoststationClient,
+    schema: &SchemaReport,
+    serial: u64,
+    path: &str,
+) -> anyhow::Result<()> {
+    let path = &fuzzy_topic_out_match(path, schema)?.path;
+
+    let mut sub = match client.stream_topic_json(serial, path).await {
+        Ok(s) => s,
+        Err(e) => bail!("{e}"),
+    };
+
+    while let Some(m) = sub.recv().await {
+        println!("{serial:016X}:'{path}':{m}");
+    }
+    println!("Closed");
+    Ok(())
 }
 
 async fn device_topics_in(serial: u64, schema: &SchemaReport) -> anyhow::Result<()> {
@@ -186,37 +222,101 @@ async fn device_logs_range(
     Ok(())
 }
 
+fn fuzzy_endpoint_match<'a>(
+    path: &str,
+    schema: &'a SchemaReport,
+) -> anyhow::Result<&'a EndpointReport> {
+    let matches = schema
+        .endpoints
+        .iter()
+        .filter(|e| e.path.contains(path))
+        .collect::<Vec<_>>();
+
+    match matches.as_slice() {
+        [] => {
+            bail!("No endpoint found matching '{path}'");
+        }
+        [ep] => Ok(ep),
+        more @ [..] => {
+            println!("Given '{path}', found:");
+            println!();
+            for matched_endpoint in more {
+                print_endpoint(matched_endpoint);
+            }
+            println!();
+            bail!("Too many matches, be more specific!");
+        }
+    }
+}
+
+fn fuzzy_topic_out_match<'a>(
+    path: &str,
+    schema: &'a SchemaReport,
+) -> anyhow::Result<&'a TopicReport> {
+    let matches = schema
+        .topics_out
+        .iter()
+        .filter(|to| to.path.contains(path))
+        .collect::<Vec<_>>();
+
+    match matches.as_slice() {
+        [] => {
+            bail!("No topic-out found matching '{path}'");
+        }
+        [tp] => Ok(tp),
+        more @ [..] => {
+            println!("Given '{path}', found:");
+            println!();
+            for matched_topic in more {
+                print_topic(matched_topic);
+            }
+            println!();
+            bail!("Too many matches, be more specific!");
+        }
+    }
+}
+
+fn fuzzy_topic_in_match<'a>(
+    path: &str,
+    schema: &'a SchemaReport,
+) -> anyhow::Result<&'a TopicReport> {
+    let matches = schema
+        .topics_in
+        .iter()
+        .filter(|to| to.path.contains(path))
+        .collect::<Vec<_>>();
+
+    match matches.as_slice() {
+        [] => {
+            bail!("No topic-in found matching '{path}'");
+        }
+        [tp] => Ok(tp),
+        more @ [..] => {
+            println!("Given '{path}', found:");
+            println!();
+            for matched_topic in more {
+                print_topic(matched_topic);
+            }
+            println!();
+            bail!("Too many matches, be more specific!");
+        }
+    }
+}
+
 async fn device_smart_proxy(
     client: PoststationClient,
     serial: u64,
     schema: &SchemaReport,
     command: &str,
-    message: &Option<&str>,
+    message: Option<&str>,
 ) -> anyhow::Result<()> {
-    let matches = schema
-        .endpoints
-        .iter()
-        .filter(|e| e.path.contains(command))
-        .collect::<Vec<_>>();
-    if matches.is_empty() {
-        bail!("No endpoint found matching '{command}'");
-    } else if matches.len() > 1 {
-        println!("Given '{command}', found:");
-        println!();
-        for matched_endpoint in matches {
-            print_endpoint(matched_endpoint);
-        }
-        println!();
-        bail!("Too many matches, be more specific!");
-    } else {
-        let ep = matches[0];
-        if ep.req_ty.ty == OwnedDataModelType::Unit {
+    let ep = fuzzy_endpoint_match(command, schema)?;
+
+    match (&ep.req_ty.ty, message) {
+        (OwnedDataModelType::Unit, None) => {
             device_proxy(client, serial, ep.path.clone(), "".to_string()).await?;
-            return Ok(());
         }
-        if let Some(message) = message {
-            device_proxy(client, serial, ep.path.clone(), message.to_string()).await?;
-        } else {
+        (_, None) => {
             bail!(
                 "Endpoint '{}' requires a message to be sent of the type: async fn({}) -> {}",
                 ep.path,
@@ -224,7 +324,45 @@ async fn device_smart_proxy(
                 ep.resp_ty.name
             );
         }
+        (_, Some(message)) => {
+            device_proxy(client, serial, ep.path.clone(), message.to_string()).await?;
+        }
     }
+
+    Ok(())
+}
+
+async fn device_smart_publish(
+    client: PoststationClient,
+    schema: &SchemaReport,
+    serial: u64,
+    path: &str,
+    message: Option<&str>,
+) -> anyhow::Result<()> {
+    let topic_in = fuzzy_topic_in_match(path, schema)?;
+
+    let msg = match (&topic_in.ty.ty, message) {
+        (OwnedDataModelType::Unit, None) => serde_json::Value::Null,
+        (_, None) => {
+            bail!(
+                "Topic '{}' requires a message to be sent of the type: {}",
+                topic_in.path,
+                topic_in.ty.name,
+            );
+        }
+        (_, Some(message)) => message.parse()?,
+    };
+
+    let seq = thread_rng().gen();
+    let res = client
+        .publish_topic_json(serial, &topic_in.path, seq, msg)
+        .await;
+
+    match res {
+        Ok(()) => println!("Published."),
+        Err(e) => println!("Error: '{e}'"),
+    }
+
     Ok(())
 }
 
@@ -241,30 +379,11 @@ async fn device_proxy(
             json!(message)
         }
     };
-
-    let res = client.proxy_endpoint_json(serial, &path, 0, msg).await;
+    let seq = thread_rng().gen();
+    let res = client.proxy_endpoint_json(serial, &path, seq, msg).await;
 
     match res {
         Ok(v) => println!("Response: '{v}'"),
-        Err(e) => println!("Error: '{e}'"),
-    }
-
-    Ok(())
-}
-
-async fn device_publish(
-    client: PoststationClient,
-    serial: String,
-    path: String,
-    message: String,
-) -> anyhow::Result<()> {
-    let serial = u64::from_str_radix(&serial, 16)?;
-    let msg = message.parse()?;
-
-    let res = client.publish_topic_json(serial, &path, 0, msg).await;
-
-    match res {
-        Ok(()) => println!("Published."),
         Err(e) => println!("Error: '{e}'"),
     }
 
