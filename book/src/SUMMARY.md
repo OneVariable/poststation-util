@@ -10,4 +10,5 @@
     - [Using Simulated Devices](./tutorial/100-simulator.md)
         - [Starting Simulated Devices](./tutorial/101-start.md)
         - [The Poststation User Interface](./tutorial/102-tui.md)
+        - [The `poststation-cli` tool](./tutorial/103-cli.md)
     - [Using an RP2040](./tutorial/200-rp2040.md)
