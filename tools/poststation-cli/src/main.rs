@@ -26,6 +26,7 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
 
+    /// Print timing information
     #[arg(long)]
     timings: bool,
 }
@@ -119,7 +120,9 @@ async fn guess_serial(serial: Option<&str>, client: &PoststationClient) -> anyho
                 std::env::var("POSTSTATION_SERIAL");
             match serial_from_env {
                 Ok(serial) => serial.to_uppercase(),
-                Err(_) => bail!("No serial provided and no POSTSTATION_SERIAL env var found"),
+                Err(_) => bail!(
+                    "No serial provided and no POSTSTATION_SERIAL env var found.\nHELP: Try `poststation-cli device SERIAL COMMAND`"
+                ),
             }
         }
     };

@@ -30,8 +30,11 @@ pub enum DeviceCommands {
     Logs { count: Option<u32> },
     /// View the selected range of logs from a given device
     LogsRange {
+        /// Number of logs to print
         count: Option<u32>,
+        /// The UUID of the log to start from
         start: String,
+        /// Direction to print from ('before' or 'after')
         direction: String,
     },
     /// Proxy message to device endpoint
@@ -101,7 +104,7 @@ async fn device_smart_listen(
 
 async fn device_topics_in(serial: u64, schema: &SchemaReport) -> anyhow::Result<()> {
     println!();
-    println!("Topics handled by device {}", serial);
+    println!("Topics handled by device {:016X}", serial);
     println!();
 
     for tp in &schema.topics_in {
@@ -113,7 +116,7 @@ async fn device_topics_in(serial: u64, schema: &SchemaReport) -> anyhow::Result<
 
 async fn device_topics_out(serial: u64, schema: &SchemaReport) -> anyhow::Result<()> {
     println!();
-    println!("Topics offered by device {}", serial);
+    println!("Topics offered by device {:016X}", serial);
     println!();
 
     for tp in &schema.topics_out {
@@ -125,7 +128,7 @@ async fn device_topics_out(serial: u64, schema: &SchemaReport) -> anyhow::Result
 
 async fn device_endpoints(serial: u64, schema: &SchemaReport) -> anyhow::Result<()> {
     println!();
-    println!("Endpoints offered by device {}", serial);
+    println!("Endpoints offered by device {:016X}", serial);
     println!();
 
     for ep in &schema.endpoints {
@@ -137,7 +140,7 @@ async fn device_endpoints(serial: u64, schema: &SchemaReport) -> anyhow::Result<
 
 async fn device_types(serial: u64, schema: &SchemaReport) -> anyhow::Result<()> {
     println!();
-    println!("Types used by device {}", serial);
+    println!("Types used by device {:016X}", serial);
     println!();
 
     let base = SchemaReport::default();
