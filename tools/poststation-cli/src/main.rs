@@ -6,7 +6,8 @@ use device::{device_cmds, Device};
 use directories::ProjectDirs;
 use postcard_rpc::host_client::{EndpointReport, TopicReport};
 use poststation_sdk::{
-    connect, connect_insecure, schema::schema::owned::OwnedDataModelType, PoststationClient,
+    connect, connect_insecure, schema::schema::owned::OwnedDataModelType, ConnectError,
+    PoststationClient,
 };
 
 mod device;
@@ -62,12 +63,29 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
         .unwrap_or_else(|| "127.0.0.1:51837".parse().unwrap());
 
     let command = cli.command;
-    let client = if cli.insecure {
+    let client_res = if cli.insecure {
         connect_insecure(server.port()).await
     } else {
         connect(server).await
-    }
-    .unwrap();
+    };
+
+    let client = match client_res {
+        Ok(c) => c,
+        Err(e) => match e {
+            ConnectError::CaCertificate => {
+                bail!("An error with the CA certificate occurred. Ensure you have the correct path and certificate for the server you want to connect to.");
+            }
+            ConnectError::Connection => {
+                bail!("An error occurred while establishing a a connection. Ensure the server is running, and your CLI and server settings match.");
+            }
+            ConnectError::Protocol => {
+                bail!("A protocol error occurred. Ensure that your CLI and Server are compatible versions");
+            }
+            other => {
+                bail!("An unknown error occurred: {other:?}");
+            }
+        },
+    };
 
     match command {
         Commands::Ls => {
