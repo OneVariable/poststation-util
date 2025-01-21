@@ -1,7 +1,7 @@
 [package]
 name = "poststation-cli"
 # This version of the CLI tested with poststation v0.14.0
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = ["James Munns <james@onevariable.com>"]
 description = "A CLI tool for poststation"
