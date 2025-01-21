@@ -16,7 +16,7 @@ version = "0.2"
 features = ["derive"]
 
 [features]
-use-std = []
+use-std = ["postcard-schema/use-std"]
 
 [profile.ci]
 inherits = "dev"

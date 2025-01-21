@@ -79,3 +79,24 @@ cargo build \
 cargo build \
     --manifest-path examples/waveshare-rp2040-keyboard-3/demo/Cargo.toml \
     --profile ci
+
+### i2c-passthru
+cargo check \
+    --manifest-path examples/i2c-passthru/icd/Cargo.toml \
+    --features="use-std" \
+    --profile ci
+
+cargo check \
+    --manifest-path examples/i2c-passthru/icd/Cargo.toml \
+    --no-default-features \
+    --target thumbv6m-none-eabi \
+    --profile ci
+
+cargo build \
+    --manifest-path examples/i2c-passthru/rp2040/Cargo.toml \
+    --target thumbv6m-none-eabi \
+    --profile ci
+
+cargo build \
+    --manifest-path examples/i2c-passthru/demo/Cargo.toml \
+    --profile ci
