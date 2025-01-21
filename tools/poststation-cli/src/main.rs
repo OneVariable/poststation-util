@@ -76,7 +76,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
                 bail!("An error with the CA certificate occurred. Ensure you have the correct path and certificate for the server you want to connect to.");
             }
             ConnectError::Connection => {
-                bail!("An error occurred while establishing a a connection. Ensure the server is running, and your CLI and server settings match.");
+                bail!("An error occurred while establishing a connection. Ensure the server is running, and your CLI and server settings match.");
             }
             ConnectError::Protocol => {
                 bail!("A protocol error occurred. Ensure that your CLI and Server are compatible versions");
