@@ -98,5 +98,10 @@ cargo build \
     --profile ci
 
 cargo build \
+    --manifest-path examples/i2c-passthru/rp2350/Cargo.toml \
+    --target thumbv8m.main-none-eabihf \
+    --profile ci
+
+cargo build \
     --manifest-path examples/i2c-passthru/demo/Cargo.toml \
     --profile ci
