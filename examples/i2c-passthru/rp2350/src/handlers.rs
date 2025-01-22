@@ -13,7 +13,7 @@ pub fn unique_id(context: &mut Context, _header: VarHeader, _arg: ()) -> u64 {
 
 /// Also a BLOCKING handler
 pub fn picoboot_reset(_context: &mut Context, _header: VarHeader, _arg: ()) {
-    embassy_rp::rom_data::reset_to_usb_boot(0, 0);
+    embassy_rp::rom_data::reboot(0x0002, 500, 0x0000, 0x0000);
     loop {
         // Wait for reset...
         compiler_fence(Ordering::SeqCst);
