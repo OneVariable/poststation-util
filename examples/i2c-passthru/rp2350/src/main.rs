@@ -61,7 +61,7 @@ async fn main(spawner: Spawner) {
     info!("Start");
     let p = embassy_rp::init(Default::default());
 
-    let unique_id: u64 = unique_id::get_unique_id().unwrap();
+    let unique_id: u64 = embassy_rp::otp::get_chipid().unwrap();
     static SERIAL_STRING: StaticCell<[u8; 16]> = StaticCell::new();
     let mut ser_buf = [b' '; 16];
     // This is a simple number-to-hex formatting
@@ -133,39 +133,5 @@ pub async fn logging_task(sender: Sender<AppTx>) {
     loop {
         ticker.next().await;
         let _ = sender_fmt!(sender, "Uptime: {:?}", start.elapsed()).await;
-    }
-}
-
-/// Helper to get unique ID
-mod unique_id {
-    use embassy_rp::rom_data::get_sys_info;
-    use defmt::info;
-
-    const PICO_UNIQUE_BOARD_ID_SIZE_BYTES: usize = 8;
-    const SYS_INFO_BUFFER_SIZE_WORDS: usize = 9;
-
-    /// This function retrieves the unique ID from the RP2350's internal unique
-    /// id register.
-    pub fn get_unique_id() -> Option<u64> {
-        const SYS_INFO_CHIP_INFO: u32 = 0;
-
-        let mut out_words = [0u32; SYS_INFO_BUFFER_SIZE_WORDS];
-        let out_bytes: &[u8; SYS_INFO_BUFFER_SIZE_WORDS * 4];
-
-        unsafe {
-            get_sys_info(out_words.as_mut_ptr(), SYS_INFO_BUFFER_SIZE_WORDS, SYS_INFO_CHIP_INFO);
-            info!("out_words: {:?}", out_words);
-            out_bytes = &*(out_words.as_ptr() as *const [u8; SYS_INFO_BUFFER_SIZE_WORDS * 4]);
-            info!("out_bytes: {:?}", out_bytes);
-        };
-
-        let mut retrieved_id = [0u8; PICO_UNIQUE_BOARD_ID_SIZE_BYTES];
-        for i in 0..PICO_UNIQUE_BOARD_ID_SIZE_BYTES {
-            retrieved_id[i] = out_bytes[PICO_UNIQUE_BOARD_ID_SIZE_BYTES - 1 + 2 * 4 - i];
-        }
-        info!("retrieved_id: {:?}", retrieved_id);
-
-        let id = u64::from_le_bytes(retrieved_id.try_into().unwrap());
-        Some(id)
     }
 }
