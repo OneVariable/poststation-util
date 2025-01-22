@@ -5,10 +5,11 @@ set -euxo pipefail
 # Ensure the book builds
 mdbook build book
 
-# Template builds for RP2040 and nRF52840
+# Template builds for RP2040, RP2350 and nRF52840
 rustup target add \
     thumbv6m-none-eabi \
-    thumbv7em-none-eabihf
+    thumbv7em-none-eabihf \
+    thumbv8m.main-none-eabihf 
 
 # API ICD
 cargo check \
