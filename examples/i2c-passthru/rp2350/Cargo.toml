@@ -41,10 +41,10 @@ codegen-units = 256
 rpath = false
 
 [patch.crates-io]
-embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "32cff6530fdb81066451cc1d3f1fbbb420e985da" }
-embassy-executor     = { git = "https://github.com/embassy-rs/embassy", rev = "32cff6530fdb81066451cc1d3f1fbbb420e985da" }
-embassy-rp           = { git = "https://github.com/embassy-rs/embassy", rev = "32cff6530fdb81066451cc1d3f1fbbb420e985da" }
-embassy-sync         = { git = "https://github.com/embassy-rs/embassy", rev = "32cff6530fdb81066451cc1d3f1fbbb420e985da" }
-embassy-time         = { git = "https://github.com/embassy-rs/embassy", rev = "32cff6530fdb81066451cc1d3f1fbbb420e985da" }
-embassy-usb          = { git = "https://github.com/embassy-rs/embassy", rev = "32cff6530fdb81066451cc1d3f1fbbb420e985da" }
-embassy-usb-driver   = { git = "https://github.com/embassy-rs/embassy", rev = "32cff6530fdb81066451cc1d3f1fbbb420e985da" }
+embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "dcf228e4487982b2aef577eb914d80fcb2ecbdc3" }
+embassy-executor     = { git = "https://github.com/embassy-rs/embassy", rev = "dcf228e4487982b2aef577eb914d80fcb2ecbdc3" }
+embassy-rp           = { git = "https://github.com/embassy-rs/embassy", rev = "dcf228e4487982b2aef577eb914d80fcb2ecbdc3" }
+embassy-sync         = { git = "https://github.com/embassy-rs/embassy", rev = "dcf228e4487982b2aef577eb914d80fcb2ecbdc3" }
+embassy-time         = { git = "https://github.com/embassy-rs/embassy", rev = "dcf228e4487982b2aef577eb914d80fcb2ecbdc3" }
+embassy-usb          = { git = "https://github.com/embassy-rs/embassy", rev = "dcf228e4487982b2aef577eb914d80fcb2ecbdc3" }
+embassy-usb-driver   = { git = "https://github.com/embassy-rs/embassy", rev = "dcf228e4487982b2aef577eb914d80fcb2ecbdc3" }
