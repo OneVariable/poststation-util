@@ -3,7 +3,7 @@
 use crate::handlers::{get_led, picoboot_reset, set_led, sleep_handler, unique_id};
 use embassy_rp::{gpio::Output, peripherals::USB, usb};
 use embassy_sync::blocking_mutex::raw::ThreadModeRawMutex;
-use postcard_rpc::server::impls::embassy_usb_v0_3::{
+use postcard_rpc::server::impls::embassy_usb_v0_4::{
     dispatch_impl::{spawn_fn, WireRxBuf, WireRxImpl, WireSpawnImpl, WireStorage, WireTxImpl},
     PacketBuffers,
 };
@@ -79,11 +79,11 @@ define_dispatch! {
     // app.
     app: MyApp;
     // This chooses how we spawn functions. Here, we use the implementation
-    // from the `embassy_usb_v0_3` implementation
+    // from the `embassy_usb_v0_4` implementation
     spawn_fn: spawn_fn;
     // This is our TX impl, which we aliased above
     tx_impl: AppTx;
-    // This is our spawn impl, which also comes from `embassy_usb_v0_3`.
+    // This is our spawn impl, which also comes from `embassy_usb_v0_4`.
     spawn_impl: WireSpawnImpl;
     // This is the context type we defined above
     context: Context;
