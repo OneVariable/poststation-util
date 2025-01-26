@@ -1,4 +1,9 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
+# If you have an SWD debugfer, you can uncomment this line:
+# runner = "probe-rs run --chip RP235x --speed 12000 --protocol swd"
+
+# If you don't, you can put the pico into the USB loader, and use this
+# line instead:
 runner = "picotool load -x -t elf"
 
 [build]
