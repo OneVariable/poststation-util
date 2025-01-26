@@ -1,10 +1,5 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
-# Picotool is currently the recommended way to flash the rp2350s
 runner = "picotool load -x -t elf"
-# If you rather you can use elf2uf2-rs to flash the rp2350. Uncomment this line, then comment out the picotool runner
-# runner = "elf2uf2-rs -d -s -t"
-
-
 
 
 [build]
