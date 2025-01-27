@@ -93,7 +93,28 @@ The default configuration file currently contains the following:
 # section is subject to change without stability guarantees
 # [experimental]
 
-# There are no configuration options for this yet.
+# # Unsafe Inhibit CORS
+#
+# Setting this to "true" will add HTTP handlers for OPTIONS requests and
+# the addition of headers to requests allowing origin `*` and the following
+# headers:
+#
+# * Accept-Encoding
+# * Connection
+# * Host
+# * Origin
+# * Referer
+# * Sec-Fetch-Dest
+# * Sec-Fetch-Mode
+# * Sec-Fetch-Site
+# * User-Agent
+# * Content-Type
+#
+# This is NOT recommended for production usage, and may allow malicious websites
+# to interact with your poststation server. This configuration is only effective
+# if `apis.http` is enabled.
+#
+# unsafe-inhibit-cors = false
 ```
 
 ## The `apis` section
@@ -170,3 +191,18 @@ the following configuration:
 security.insecure   = {}
 listener.local-only = { port = 4444 }
 ```
+
+## The `experimental` section
+
+These flags are experimental, and may be removed at any time.
+
+### `experimental.unsafe-inhibit-cors`
+
+This flags causes the `http` API to emit flags that allow for cross-site requests.
+
+This is necessary if you'd like a web browser to interact directly with poststation's REST API.
+
+This is NOT recommended, and may expose poststation to malicious website requests.
+
+If you are building a web frontend, it is recommended to instead make API requests with your backend,
+and have the web frontend speak to your server, rather than poststation directly.
