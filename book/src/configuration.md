@@ -83,9 +83,32 @@ The default configuration file currently contains the following:
 #
 # This section is used to control local storage options. This section
 # is optional.
+#
+# Options for each item are `.unlimited = {}` to set the storage to be
+# unbounded, or `.fifo-megabytes = N`, where N is the (approximate) number
+# of megabytes (specifically mebibytes, N * 1024 * 1024 bytes) to be used
+# for storing data in a first-in first-out basis.
+#
+# Defaults are shown commented out.
+#
 # [storage]
+# # Tracing history of Poststation
+# tracing.fifo-megabytes = 32
 
-# There are no configuration options for this yet.
+# # Historical "endpoint" request and response data
+# endpoints.fifo-megabytes = 128
+
+# # Historical "topics in" message data
+# topics-in.fifo-megabytes = 128
+
+# # Historical "topics out" message data
+# topics-out.fifo-megabytes = 128
+
+# # Historical device log data
+# logs.fifo-megabytes = 128
+
+# # History of connected devices and their metadata
+# devices.fifo-megabytes = 64
 
 # # `experimental`
 #
@@ -190,6 +213,30 @@ the following configuration:
 [apis.http]
 security.insecure   = {}
 listener.local-only = { port = 4444 }
+```
+
+## The `storage` section
+
+This section limits the maximum persistent history used by Poststation.
+
+Be careful when reducing these numbers! If your current history exceeds the new limits,
+the old data will be deleted, and this is NOT recoverable!
+
+Each item may be set to "unlimited" storage, for example:
+
+```toml
+[storage]
+# Historical "endpoint" request and response data
+endpoints.unlimited = {}
+```
+
+Or be set to "First In, First Out", which deletes data when the storage exceeds
+the set limit:
+
+```toml
+[storage]
+# Historical "endpoint" request and response data
+endpoints.fifo-megabytes = 128
 ```
 
 ## The `experimental` section
