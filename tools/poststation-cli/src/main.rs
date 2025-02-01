@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, path::PathBuf, time::Instant};
+use std::{net::SocketAddr, path::{Path, PathBuf}, time::Instant};
 
 use anyhow::bail;
 use clap::{command, Parser, Subcommand};
@@ -6,8 +6,7 @@ use device::{device_cmds, Device};
 use directories::ProjectDirs;
 use postcard_rpc::host_client::{EndpointReport, TopicReport};
 use poststation_sdk::{
-    connect, connect_insecure, schema::schema::owned::OwnedDataModelType, ConnectError,
-    PoststationClient,
+    connect, connect_insecure, connect_with_ca_pem, schema::schema::owned::OwnedDataModelType, ConnectError, PoststationClient
 };
 
 mod device;
@@ -19,6 +18,10 @@ struct Cli {
     /// A path to the server. Defaults to `127.0.0.1:51837`.
     #[arg(short, long, value_name = "SERVER_ADDR")]
     server: Option<SocketAddr>,
+
+    /// A path to the server CA cert.
+    #[arg(short, long, value_name = "CA_CERT")]
+    ca_cert: Option<String>,
 
     /// When set, a plaintext connection will be made with the server
     #[arg(long)]
@@ -65,6 +68,12 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
     let command = cli.command;
     let client_res = if cli.insecure {
         connect_insecure(server.port()).await
+    } else if let Some(p) = cli.ca_cert {
+        let path = Path::new(&p);
+        let Ok(path) = path.canonicalize() else {
+            bail!("Unable to canonicalize path: '{p}', try using absolute path instead");
+        };
+        connect_with_ca_pem(server, &path).await
     } else {
         connect(server).await
     };
