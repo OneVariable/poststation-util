@@ -83,9 +83,32 @@ The default configuration file currently contains the following:
 #
 # This section is used to control local storage options. This section
 # is optional.
+#
+# Options for each item are `.unlimited = {}` to set the storage to be
+# unbounded, or `.fifo-megabytes = N`, where N is the (approximate) number
+# of megabytes (specifically mebibytes, N * 1024 * 1024 bytes) to be used
+# for storing data in a first-in first-out basis.
+#
+# Defaults are shown commented out.
+#
 # [storage]
+# # Tracing history of Poststation
+# tracing.fifo-megabytes = 32
 
-# There are no configuration options for this yet.
+# # Historical "endpoint" request and response data
+# endpoints.fifo-megabytes = 128
+
+# # Historical "topics in" message data
+# topics-in.fifo-megabytes = 128
+
+# # Historical "topics out" message data
+# topics-out.fifo-megabytes = 128
+
+# # Historical device log data
+# logs.fifo-megabytes = 128
+
+# # History of connected devices and their metadata
+# devices.fifo-megabytes = 64
 
 # # `experimental`
 #
@@ -93,7 +116,28 @@ The default configuration file currently contains the following:
 # section is subject to change without stability guarantees
 # [experimental]
 
-# There are no configuration options for this yet.
+# # Unsafe Inhibit CORS
+#
+# Setting this to "true" will add HTTP handlers for OPTIONS requests and
+# the addition of headers to requests allowing origin `*` and the following
+# headers:
+#
+# * Accept-Encoding
+# * Connection
+# * Host
+# * Origin
+# * Referer
+# * Sec-Fetch-Dest
+# * Sec-Fetch-Mode
+# * Sec-Fetch-Site
+# * User-Agent
+# * Content-Type
+#
+# This is NOT recommended for production usage, and may allow malicious websites
+# to interact with your poststation server. This configuration is only effective
+# if `apis.http` is enabled.
+#
+# unsafe-inhibit-cors = false
 ```
 
 ## The `apis` section
@@ -170,3 +214,42 @@ the following configuration:
 security.insecure   = {}
 listener.local-only = { port = 4444 }
 ```
+
+## The `storage` section
+
+This section limits the maximum persistent history used by Poststation.
+
+Be careful when reducing these numbers! If your current history exceeds the new limits,
+the old data will be deleted, and this is NOT recoverable!
+
+Each item may be set to "unlimited" storage, for example:
+
+```toml
+[storage]
+# Historical "endpoint" request and response data
+endpoints.unlimited = {}
+```
+
+Or be set to "First In, First Out", which deletes data when the storage exceeds
+the set limit:
+
+```toml
+[storage]
+# Historical "endpoint" request and response data
+endpoints.fifo-megabytes = 128
+```
+
+## The `experimental` section
+
+These flags are experimental, and may be removed at any time.
+
+### `experimental.unsafe-inhibit-cors`
+
+This flags causes the `http` API to emit flags that allow for cross-site requests.
+
+This is necessary if you'd like a web browser to interact directly with poststation's REST API.
+
+This is NOT recommended, and may expose poststation to malicious website requests.
+
+If you are building a web frontend, it is recommended to instead make API requests with your backend,
+and have the web frontend speak to your server, rather than poststation directly.
