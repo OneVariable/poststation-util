@@ -1,6 +1,7 @@
 # Summary
 
 - [Introduction](./intro.md)
+- [Relationship to postcard](./family.md)
 - [Installation](./installation.md)
     - [Install Poststation](./installation-poststation.md)
     - [Install Tools](./installation-utils.md)
@@ -11,4 +12,5 @@
         - [Starting Simulated Devices](./tutorial/101-start.md)
         - [The Poststation User Interface](./tutorial/102-tui.md)
         - [The `poststation-cli` tool](./tutorial/103-cli.md)
+        - [The `poststation-sdk` crate](./tutorial/104-sdk.md)
     - [Using an RP2040](./tutorial/200-rp2040.md)

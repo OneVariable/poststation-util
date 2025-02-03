@@ -10,7 +10,6 @@ use std::{
 };
 
 use directories::ProjectDirs;
-use postcard_dyn::Value;
 use postcard_rpc::{
     host_client::{
         HostClient, HostErr, MultiSubRxError, MultiSubscription, SchemaReport, TopicReport, WireRx,
@@ -38,6 +37,7 @@ use tokio::{
 
 pub use postcard_schema as schema;
 pub use poststation_api_icd as icd;
+pub use postcard_dyn::Value;
 use tokio_rustls::TlsConnector;
 
 // ---
@@ -84,14 +84,26 @@ pub struct PoststationClient {
 }
 
 impl PoststationClient {
+    /// Obtain the raw postcard-rpc client used to talk to the poststation server
+    ///
+    /// Not recommended for direct usage.
+    #[doc(hidden)]
     pub fn raw_client(&self) -> &HostClient<WireError> {
         &self.client
     }
 
+    /// Get devices known by the Poststation server
+    ///
+    /// Returns an Error if connection to the Poststation server has failed.
     pub async fn get_devices(&self) -> Result<Vec<DeviceData>, ClientError> {
         Ok(self.client.send_resp::<GetDevicesEndpoint>(&()).await?)
     }
 
+    /// Get a schema report of the given device
+    ///
+    /// * Returns `Ok(Some(report))` if the device exists and the operation succeeded
+    /// * Returns `Ok(None)` if the operation succeeded, but the given device was not known to Poststation
+    /// * Returns an error if the connection with the server failed
     pub async fn get_device_schemas(
         &self,
         serial: u64,
@@ -100,6 +112,11 @@ impl PoststationClient {
         Ok(res)
     }
 
+    /// Obtain the most recent `count` logs from the given device
+    ///
+    /// * Returns `Ok(Some(logs))` if the device exists and the operation succeeded
+    /// * Returns `Ok(None)` if the operation succeeded, but the given device was not known to Poststation
+    /// * Returns an error if the connection with the server failed
     pub async fn get_device_logs(
         &self,
         serial: u64,
@@ -111,6 +128,17 @@ impl PoststationClient {
             .await?)
     }
 
+    /// Obtain the up to `count` logs from the given device
+    ///
+    /// While [`get_device_logs()`][Self::get_device_logs] gets the NEWEST logs, this method can be used
+    /// to obtain logs before or after a given "anchor" point. This is often handy for pagination of results,
+    /// allowing for getting N logs before or after a given point.
+    ///
+    /// [Anchor] can be either a unix millisecond timestamp, or the UUID of a specific log event.
+    ///
+    /// * Returns `Ok(Some(logs))` if the device exists and the operation succeeded
+    /// * Returns `Ok(None)` if the operation succeeded, but the given device was not known to Poststation
+    /// * Returns an error if the connection with the server failed
     pub async fn get_device_logs_range(
         &self,
         serial: u64,
@@ -129,6 +157,14 @@ impl PoststationClient {
             .await?)
     }
 
+    /// Get the last `count` topic-out messages for a given `path`
+    ///
+    /// This function returns the raw, serialized form of messages. You will need to deserialize
+    /// the messages using `postcard` and the known type of the message.
+    ///
+    /// * Returns `Ok(Some(msgs))` if the device exists and the operation succeeded
+    /// * Returns `Ok(None)` if the operation succeeded, but the given device was not known to Poststation
+    /// * Returns an error if the connection with the server failed
     pub async fn get_device_topics_out_by_path_raw(
         &self,
         serial: u64,
@@ -159,6 +195,13 @@ impl PoststationClient {
             .await?)
     }
 
+    /// Get the last `count` topic-out messages for a given `path`
+    ///
+    /// This function returns the messages in JSON form.
+    ///
+    /// * Returns `Ok(Some(msgs))` if the device exists and the operation succeeded
+    /// * Returns `Ok(None)` if the operation succeeded, but the given device was not known to Poststation
+    /// * Returns an error if the connection with the server failed
     pub async fn get_device_topics_out_by_path_json(
         &self,
         serial: u64,
@@ -199,6 +242,16 @@ impl PoststationClient {
         Ok(Some(res))
     }
 
+    /// Proxy to an endpoint, using shared types
+    ///
+    /// This method should be used when the types used by the remote server are known.
+    ///
+    /// This method is the equivalent of `send_resp` in postcard-rpc. The message will be
+    /// sent to poststation, and proxied to the remote device. The response will then be
+    /// forwarded back from poststation to the client.
+    ///
+    /// Returns an error if the connection between the client and poststation failed, or
+    /// if the connection between poststation and the remote device failed.
     pub async fn proxy_endpoint<E>(
         &self,
         serial: u64,
@@ -260,6 +313,18 @@ impl PoststationClient {
         }
     }
 
+    /// Proxy to an endpoint, WITHOUT using shared types
+    ///
+    /// This method should be used when the types used by the remote server are NOT known.
+    ///
+    /// This method is the equivalent of `send_resp` in postcard-rpc. The message will be
+    /// sent to poststation, and proxied to the remote device. The response will then be
+    /// forwarded back from poststation to the client.
+    ///
+    /// Returns an error if the connection between the client and poststation failed, or
+    /// if the connection between poststation and the remote device failed. This method
+    /// also returns an error if the provided `Value` does not match the schema reported
+    /// by the remote device.
     pub async fn proxy_endpoint_json(
         &self,
         serial: u64,
@@ -315,6 +380,13 @@ impl PoststationClient {
         }
     }
 
+    /// Publish a `topic-in` message to a given device, WITHOUT shared types
+    ///
+    /// This is the equivalent to `publish` in `postcard-rpc`.
+    ///
+    /// Returns an error if the connection between the client and poststation, or the connection
+    /// between poststation and the remote device has failed. Also returns an error if the provided
+    /// `Value` does not match the schema reported by the remote device.
     pub async fn publish_topic_json(
         &self,
         serial: u64,
@@ -355,6 +427,10 @@ impl PoststationClient {
         }
     }
 
+    /// Publish a `topic-in` message to a given device, WITH shared types
+    ///
+    /// Returns an error if the connection between the client and poststation, or the connection
+    /// between poststation and the remote device has failed.
     pub async fn publish_topic<T>(
         &self,
         serial: u64,
