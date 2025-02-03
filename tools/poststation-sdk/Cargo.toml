@@ -1,6 +1,6 @@
 [package]
 name = "poststation-sdk"
-# This version of the SDK tested with poststation v0.14.0
+# This version of the SDK tested with poststation v0.15.0
 version = "0.4.1"
 edition = "2021"
 authors = ["James Munns <james@onevariable.com>"]
