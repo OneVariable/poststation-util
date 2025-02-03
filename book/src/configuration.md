@@ -36,13 +36,13 @@ The default configuration file currently contains the following:
 ## API SDK Security options - pick ONE:
 
 # Insecure, no encryption, only local connections will be allowed
-# security.insecure        = {}
+# security = "insecure"
 
 # Self-signed CA certificate. Global connections will be allowed, clients
 #   on other machines will need a copy of the generated CA Certificate
 #
 # This is the default and recommended option.
-# security.tls-self-signed = {}
+# security = "tls-self-signed"
 
 ## API SDK Listener options - pick ONE
 
@@ -67,13 +67,13 @@ The default configuration file currently contains the following:
 # ## REST API Security options - pick ONE:
 
 # Insecure, no encryption, only local connections will be allowed
-# security.insecure        = {}
+# security = "insecure"
 
 # Self-signed CA certificate. Global connections will be allowed, clients
 #   on other machines will need a copy of the generated CA Certificate
 #
 # This is the default and recommended option.
-# security.tls-self-signed = {}
+# security = "tls-self-signed"
 
 # ## Listener options
 # listener.local-only = { port = 4444 } # default
@@ -84,7 +84,7 @@ The default configuration file currently contains the following:
 # This section is used to control local storage options. This section
 # is optional.
 #
-# Options for each item are `.unlimited = {}` to set the storage to be
+# Options for each item are `= "unlimited"` to set the storage to be
 # unbounded, or `.fifo-megabytes = N`, where N is the (approximate) number
 # of megabytes (specifically mebibytes, N * 1024 * 1024 bytes) to be used
 # for storing data in a first-in first-out basis.
@@ -138,6 +138,18 @@ The default configuration file currently contains the following:
 # if `apis.http` is enabled.
 #
 # unsafe-inhibit-cors = false
+
+# # Allowed Bridges
+#
+# This feature enables bridging, allowing for a device to act as a connection
+# to further devices.
+#
+# Acceptable values here are "none", "any", or a list of u64 serial numbers.
+# Defaults to "none"
+#
+# allowed-bridges = "none"
+# allowed-bridges = "any"
+# allowed-bridges.specific = ["27927AE08C5C829B"]
 ```
 
 ## The `apis` section
@@ -167,8 +179,8 @@ use the following configuration:
 
 ```toml
 [apis.sdk]
-security.tls-self-signed = {}
-listener.global          = { socket_addr = "0.0.0.0:51837" }
+security        = "tls-self-signed"
+listener.global = { socket_addr = "0.0.0.0:51837" }
 ```
 
 If you wanted to serve only locally, with no encryption, you could use
@@ -176,7 +188,7 @@ the following configuration:
 
 ```toml
 [apis.sdk]
-security.insecure   = {}
+security            = "insecure"
 listener.local-only = { port = 51837 }
 ```
 
@@ -202,8 +214,8 @@ use the following configuration:
 
 ```toml
 [apis.http]
-security.tls-self-signed = {}
-listener.global          = { socket_addr = "0.0.0.0:4444" }
+security        = "tls-self-signed"
+listener.global = { socket_addr = "0.0.0.0:4444" }
 ```
 
 If you wanted to serve only locally, with no encryption, you could use
@@ -211,7 +223,7 @@ the following configuration:
 
 ```toml
 [apis.http]
-security.insecure   = {}
+security            = "insecure"
 listener.local-only = { port = 4444 }
 ```
 
@@ -227,7 +239,7 @@ Each item may be set to "unlimited" storage, for example:
 ```toml
 [storage]
 # Historical "endpoint" request and response data
-endpoints.unlimited = {}
+endpoints = "unlimited"
 ```
 
 Or be set to "First In, First Out", which deletes data when the storage exceeds
@@ -245,7 +257,7 @@ These flags are experimental, and may be removed at any time.
 
 ### `experimental.unsafe-inhibit-cors`
 
-This flags causes the `http` API to emit flags that allow for cross-site requests.
+This flag causes the `http` API to emit flags that allow for cross-site requests.
 
 This is necessary if you'd like a web browser to interact directly with poststation's REST API.
 
@@ -253,3 +265,27 @@ This is NOT recommended, and may expose poststation to malicious website request
 
 If you are building a web frontend, it is recommended to instead make API requests with your backend,
 and have the web frontend speak to your server, rather than poststation directly.
+
+### `experimental.allowed-bridges`
+
+This flag enables the experimental "bridging" feature, that allows for a postcard-rpc server to proxy
+connections to further devices. Messages to bridged devices will be routed through the bridge device.
+
+Bridge devices are responsible for reporting connected devices, and forwarding messages in both directions.
+
+This interface is likely to change in breaking ways before stabilizing.
+
+Acceptable values here are "none", "any", or a list of u64 serial numbers. Defaults to "none"
+
+```toml
+# Don't attempt to bridge any connections
+allowed-bridges = "none"
+
+# Trust any device that reports as a bridge, and allow for connection
+# to onward devices
+allowed-bridges = "any"
+
+# ONLY allow the following devices (specified by serial number in hex form) to act
+# as bridges. Any device reported by these bridges will establish a connection.
+allowed-bridges.specific = ["27927AE08C5C829B"]
+```
