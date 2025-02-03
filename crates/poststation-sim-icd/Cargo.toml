@@ -1,0 +1,25 @@
+[package]
+name = "poststation-sim-icd"
+version = "0.1.0"
+edition = "2021"
+authors = ["James Munns <james@onevariable.com>"]
+description = "The simulator interface definition for Poststation"
+repository = "https://github.com/OneVariable/poststation-util"
+license = "MIT OR Apache-2.0"
+
+[profile.ci]
+inherits = "dev"
+debug = false
+strip = true
+debug-assertions = true
+overflow-checks = true
+lto = false
+panic = 'unwind'
+incremental = false
+codegen-units = 256
+rpath = false
+
+[dependencies]
+postcard-rpc = "0.11.7"
+postcard-schema = { version = "0.2.1", features = ["derive", "use-std"] }
+serde = { version = "1.0.217", default-features = false, features = ["derive", "std"] }

@@ -21,6 +21,23 @@ cargo check \
     --all-features \
     --profile ci
 
+# SIM ICD
+cargo check \
+    --manifest-path crates/poststation-sim-icd/Cargo.toml \
+    --profile ci
+
+# FW ICD
+cargo check \
+    --manifest-path crates/poststation-fw-icd/Cargo.toml \
+    --all-features \
+    --profile ci
+
+cargo check \
+    --manifest-path crates/poststation-fw-icd/Cargo.toml \
+    --no-default-features \
+    --target thumbv6m-none-eabi \
+    --profile ci
+
 # SDK crate
 cargo check \
     --manifest-path tools/poststation-sdk/Cargo.toml \
