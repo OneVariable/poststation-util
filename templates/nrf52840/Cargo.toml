@@ -39,13 +39,3 @@ panic = 'unwind'
 incremental = false
 codegen-units = 256
 rpath = false
-
-[patch.crates-io]
-embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-executor     = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-nrf          = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-sync         = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-time         = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-time-driver  = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-usb          = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-usb-driver   = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
