@@ -41,11 +41,11 @@ codegen-units = 256
 rpath = false
 
 [patch.crates-io]
-embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-executor     = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-nrf          = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-sync         = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-time         = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-time-driver  = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-usb          = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
-embassy-usb-driver   = { git = "https://github.com/embassy-rs/embassy", rev = "51d87c6603631fda6fb59ca1a65a99c08138b081" }
+embassy-embedded-hal = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
+embassy-executor     = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
+embassy-nrf          = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
+embassy-sync         = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
+embassy-time         = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
+embassy-time-driver  = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
+embassy-usb          = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
+embassy-usb-driver   = { git = "https://github.com/embassy-rs/embassy", rev = "4e69e5b3c719ccd73e2dee47294c9f599525997d" }
