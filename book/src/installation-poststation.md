@@ -1,7 +1,9 @@
 # Install Poststation
 
-Currently, the only way to obtain the Poststation executables is to
-[Contact OneVariable](mailto:contact@onevariable.com) for early access.
+The Poststation application can be downloaded at [poststation.rs/download](https://poststation.rs/download/).
+
+The downloaded application starts in trial mode, and a license can be purchased [in the store](https://onevariable.lemonsqueezy.com/)
+to remove the `UNREGISTERED` banner and other limitations of trial mode.
 
 ## MacOS
 
