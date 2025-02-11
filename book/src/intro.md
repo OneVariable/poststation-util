@@ -4,7 +4,7 @@ This is a user guide for the Poststation tool.
 
 ## What is Poststation?
 
-Poststation is a tool for connecting embedded devices and applications running on a PC,
+Poststation is a tool for connecting embedded devices with applications running on a PC,
 laptop, or embedded linux system. It works with any device speaking the `postcard-rpc` protocol.
 
 Poststation is used to:
