@@ -11,6 +11,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 anyhow      = "1.0.89"
 clap        = { version = "4.5.19", features = ["derive"] }
+clap_complete = "4.5.44"
 directories = "5.0.1"
 rand = "0.8.5"
 serde_json  = "1.0.128"
