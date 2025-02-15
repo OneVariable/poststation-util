@@ -27,15 +27,19 @@ pub enum DeviceCommands {
     /// View all topics handled by a given device
     TopicsIn,
     /// View the most recent logs from a given device
-    Logs { count: Option<u32> },
+    Logs {
+        #[arg(default_value = "8")]
+        count: u32,
+    },
     /// View the selected range of logs from a given device
     LogsRange {
-        /// Number of logs to print
-        count: Option<u32>,
         /// The UUID of the log to start from
         start: String,
         /// Direction to print from ('before' or 'after')
         direction: String,
+        /// Number of logs to print
+        #[arg(default_value = "8")]
+        count: u32,
     },
     /// Proxy message to device endpoint
     Proxy {
@@ -153,20 +157,15 @@ async fn device_types(serial: u64, schema: &SchemaReport) -> anyhow::Result<()> 
     Ok(())
 }
 
-async fn device_logs(
-    client: PoststationClient,
-    serial: u64,
-    count: &Option<u32>,
-) -> anyhow::Result<()> {
-    let count = count.unwrap_or(8);
+async fn device_logs(client: PoststationClient, serial: u64, count: &u32) -> anyhow::Result<()> {
     let logs = client
-        .get_device_logs(serial, count)
+        .get_device_logs(serial, *count)
         .await
         .expect("expected to be able to get logs for device")
         .expect("expected device to have known logs");
 
     println!();
-    println!("Logs (last {} messages):", count.min(logs.len() as u32));
+    println!("Logs (last {} messages):", count.min(&(logs.len() as u32)));
     println!();
     for log in logs {
         // println!("* {} => {}", log.uuidv7.id_to_time().time(), log.msg);
@@ -185,11 +184,10 @@ async fn device_logs(
 async fn device_logs_range(
     client: PoststationClient,
     serial: u64,
-    count: &Option<u32>,
+    count: &u32,
     start: &str,
     direction: &str,
 ) -> anyhow::Result<()> {
-    let count = count.unwrap_or(8);
     let start = start.parse::<Uuid>()?;
     let dir = match direction.to_lowercase().as_str() {
         "after" => Direction::After,
@@ -200,7 +198,7 @@ async fn device_logs_range(
     let logs = client
         .get_device_logs_range(
             serial,
-            count,
+            *count,
             dir,
             poststation_api_icd::postsock::Anchor::Uuid(start.into()),
         )
@@ -209,7 +207,7 @@ async fn device_logs_range(
         .expect("expected device to have known logs");
 
     println!();
-    println!("Logs (last {} messages):", count.min(logs.len() as u32));
+    println!("Logs (last {} messages):", count.min(&(logs.len() as u32)));
     println!();
     for log in logs {
         // println!("* {} => {}", log.uuidv7.id_to_time().time(), log.msg);

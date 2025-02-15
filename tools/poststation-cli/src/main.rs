@@ -1,12 +1,17 @@
-use std::{net::SocketAddr, path::{Path, PathBuf}, time::Instant};
+use std::{
+    net::SocketAddr,
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 use anyhow::bail;
-use clap::{command, Parser, Subcommand};
+use clap::{arg, command, CommandFactory, Parser, Subcommand};
 use device::{device_cmds, Device};
 use directories::ProjectDirs;
 use postcard_rpc::host_client::{EndpointReport, TopicReport};
 use poststation_sdk::{
-    connect, connect_insecure, connect_with_ca_pem, schema::schema::owned::OwnedDataModelType, ConnectError, PoststationClient
+    connect, connect_insecure, connect_with_ca_pem, schema::schema::owned::OwnedDataModelType,
+    ConnectError, PoststationClient,
 };
 
 mod device;
@@ -46,6 +51,12 @@ enum Commands {
 
     /// Interact with a specific device
     Device(Device),
+
+    /// Generate auto-completion for given shell
+    Completion {
+        #[arg(value_enum)]
+        shell: clap_complete::Shell,
+    },
 }
 
 #[tokio::main]
@@ -61,6 +72,19 @@ async fn main() -> anyhow::Result<()> {
 }
 
 async fn inner_main(cli: Cli) -> anyhow::Result<()> {
+    // Handle completion command first, before any server connection
+    if let Commands::Completion { shell } = cli.command {
+        println!("Start generating completion script for {shell} shell");
+        clap_complete::generate(
+            shell,
+            &mut Cli::command(),
+            env!("CARGO_PKG_NAME"),
+            &mut std::io::stdout().lock(),
+        );
+        println!("Successfully generated completion script.");
+        return Ok(());
+    }
+
     let server = cli
         .server
         .unwrap_or_else(|| "127.0.0.1:51837".parse().unwrap());
@@ -136,6 +160,7 @@ async fn inner_main(cli: Cli) -> anyhow::Result<()> {
             println!();
             Ok(())
         }
+        Commands::Completion { .. } => Ok(()),
     }
 }
 
